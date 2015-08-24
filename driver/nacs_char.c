@@ -118,9 +118,10 @@ static ssize_t dev_read(struct file *filep, char *buffer, size_t len,
     error_count = copy_to_user(buffer, message, size_of_message);
 
     if (error_count == 0) {
+        ssize_t size = size_of_message;
         pr_info("Sent %d characters to the user\n", size_of_message);
         size_of_message = 0;
-        return 0;
+        return size;
     }
     else {
         pr_info("Failed to send %d characters to the user\n", error_count);
