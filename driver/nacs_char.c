@@ -143,8 +143,6 @@ nacs_dev_release(struct inode *inodep, struct file *filep)
 static long
 nacs_dev_ioctl(struct file *file, unsigned int cmd, unsigned long _arg)
 {
-    long ret = 0;
-
     switch (cmd) {
     case KNACS_GET_VERSION: {
         const int major_ver = KNACS_MAJOR_VER;
@@ -156,10 +154,10 @@ nacs_dev_ioctl(struct file *file, unsigned int cmd, unsigned long _arg)
         break;
     }
     default:
-        break;
+        return -EINVAL;
     }
 
-    return ret;
+    return 0;
 }
 
 module_init(knacs_init);
