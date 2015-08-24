@@ -29,6 +29,8 @@
 #include <linux/fs.h>
 #include <asm/uaccess.h>
 
+#include "knacs.h"
+
 #define DEVICE_NAME "knacs"
 #define CLASS_NAME "nacs"
 
@@ -36,6 +38,9 @@ MODULE_LICENSE("GPL");
 MODULE_AUTHOR("Yichao Yu");
 MODULE_DESCRIPTION("Linux driver for NaCs control system");
 MODULE_VERSION("0.1");
+
+#define KNACS_MAJOR_VER 0
+#define KNACS_MINOR_VER 1
 
 // The prototype functions for the character driver -- must come before the
 // struct definition
@@ -45,12 +50,16 @@ static int nacs_dev_release(struct inode*, struct file*);
 /* static ssize_t nacs_dev_read(struct file*, char*, size_t, loff_t*); */
 /* static ssize_t nacs_dev_write(struct file*, const char*, size_t, loff_t*); */
 
+static long nacs_dev_ioctl(struct file *file, unsigned int cmd,
+                           unsigned long arg);
+
 static struct file_operations fops = {
     .owner = THIS_MODULE,
     .open = nacs_dev_open,
     /* .read = nacs_dev_read, */
     /* .write = nacs_dev_write, */
     .release = nacs_dev_release,
+    .unlocked_ioctl = nacs_dev_ioctl,
 };
 
 static int majorNumber;
@@ -106,7 +115,8 @@ static void __exit knacs_exit(void)
     pr_debug("Goodbye.\n");
 }
 
-static int nacs_dev_open(struct inode *inodep, struct file *filep)
+static int
+nacs_dev_open(struct inode *inodep, struct file *filep)
 {
     pr_debug("open()\n");
     return 0;
@@ -123,10 +133,32 @@ static int nacs_dev_open(struct inode *inodep, struct file *filep)
 /* { */
 /* } */
 
-static int nacs_dev_release(struct inode *inodep, struct file *filep)
+static int
+nacs_dev_release(struct inode *inodep, struct file *filep)
 {
     pr_debug("close()\n");
     return 0;
+}
+
+static long
+nacs_dev_ioctl(struct file *file, unsigned int cmd, unsigned long _arg)
+{
+    long ret = 0;
+
+    switch (cmd) {
+    case KNACS_GET_VERSION: {
+        const int major_ver = KNACS_MAJOR_VER;
+        const int minor_ver = KNACS_MINOR_VER;
+        knacs_version_t *arg = (knacs_version_t*)_arg;
+        if (copy_to_user(&arg->major, &major_ver, sizeof(int)) ||
+            copy_to_user(&arg->minor, &minor_ver, sizeof(int)))
+            return -EFAULT;
+    }
+    default:
+        break;
+    }
+
+    return ret;
 }
 
 module_init(knacs_init);

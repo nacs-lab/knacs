@@ -2,7 +2,8 @@
 
 set(KNACS_DRIVER_SRCS
   Kbuild
-  nacs_char.c)
+  nacs_char.c
+  knacs.h)
 
 set(KNACS_OUTPUT_DIR "${CMAKE_CURRENT_BINARY_DIR}")
 
@@ -28,3 +29,6 @@ add_custom_target(nacs-driver ALL
 
 install(FILES "${KNACS_OUTPUT_DIR}/knacs.ko"
   DESTINATION "${EXTRAMODULES_DIR}")
+
+install(FILES "knacs.h"
+  DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}/knacs/")
