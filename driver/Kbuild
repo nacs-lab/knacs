@@ -1,0 +1,2 @@
+obj-m := knacs.o
+knacs-y := nacs_char.o
