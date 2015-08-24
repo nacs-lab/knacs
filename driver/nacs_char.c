@@ -37,12 +37,8 @@ MODULE_AUTHOR("Yichao Yu");
 MODULE_DESCRIPTION("Linux driver for NaCs control system");
 MODULE_VERSION("0.1");
 
-static int majorNumber;
 static char message[256] = {0};
 static short size_of_message;
-static int numberOpens = 0;
-static struct class *nacsClass = NULL;
-static struct device *knacsDevice = NULL;
 
 // The prototype functions for the character driver -- must come before the
 // struct definition
@@ -52,46 +48,55 @@ static ssize_t dev_read(struct file*, char*, size_t, loff_t*);
 static ssize_t dev_write(struct file*, const char*, size_t, loff_t*);
 
 static struct file_operations fops = {
+    .owner = THIS_MODULE,
     .open = dev_open,
     .read = dev_read,
     .write = dev_write,
     .release = dev_release,
 };
 
+static int majorNumber;
+static struct class *nacsClass = NULL;
+static struct device *knacsDevice = NULL;
+
 static int __init knacs_init(void)
 {
+    int err = 0;
     // Try to dynamically allocate a major number for the device --
     // more difficult but worth it
     majorNumber = register_chrdev(0, DEVICE_NAME, &fops);
     if (majorNumber < 0) {
         pr_alert("Failed to register a major number\n");
-        return majorNumber;
+        err = majorNumber;
+        goto reg_dev_fail;
     }
-    pr_info("Registered correctly with major number %d\n", majorNumber);
 
     // Register the device class
     nacsClass = class_create(THIS_MODULE, CLASS_NAME);
     if (IS_ERR(nacsClass)) {
-        // Check for error and clean up if there is
-        unregister_chrdev(majorNumber, DEVICE_NAME);
         pr_alert("Failed to register device class\n");
         // Correct way to return an error on a pointer
-        return PTR_ERR(nacsClass);
+        err = PTR_ERR(nacsClass);
+        goto class_create_fail;
     }
-    pr_info("Device class registered correctly\n");
 
     // Register the device driver
     knacsDevice = device_create(nacsClass, NULL, MKDEV(majorNumber, 0), NULL,
                                 DEVICE_NAME);
     if (IS_ERR(knacsDevice)) {
-        // Clean up if there is an error
-        class_destroy(nacsClass);
-        unregister_chrdev(majorNumber, DEVICE_NAME);
         pr_alert("Failed to create the device\n");
-        return PTR_ERR(knacsDevice);
+        err = PTR_ERR(knacsDevice);
+        goto dev_create_fail;
     }
     pr_info("Device class created correctly\n");
     return 0;
+
+dev_create_fail:
+    class_destroy(nacsClass);
+class_create_fail:
+    unregister_chrdev(majorNumber, DEVICE_NAME);
+reg_dev_fail:
+    return err;
 }
 
 static void __exit knacs_exit(void)
@@ -100,13 +105,12 @@ static void __exit knacs_exit(void)
     class_unregister(nacsClass); // unregister the device class
     class_destroy(nacsClass); // remove the device class
     unregister_chrdev(majorNumber, DEVICE_NAME); // unregister the major number
-    pr_info("Goodbye from the LKM!\n");
+    pr_debug("Goodbye.\n");
 }
 
 static int dev_open(struct inode *inodep, struct file *filep)
 {
-    numberOpens++;
-    pr_info("Device has been opened %d time(s)\n", numberOpens);
+    pr_debug("open()\n");
     return 0;
 }
 
@@ -142,7 +146,7 @@ static ssize_t dev_write(struct file *filep, const char *buffer, size_t len,
 
 static int dev_release(struct inode *inodep, struct file *filep)
 {
-    pr_info("Device successfully closed\n");
+    pr_debug("close()\n");
     return 0;
 }
 
