@@ -37,22 +37,20 @@ MODULE_AUTHOR("Yichao Yu");
 MODULE_DESCRIPTION("Linux driver for NaCs control system");
 MODULE_VERSION("0.1");
 
-static char message[256] = {0};
-static short size_of_message;
-
 // The prototype functions for the character driver -- must come before the
 // struct definition
-static int dev_open(struct inode*, struct file*);
-static int dev_release(struct inode*, struct file*);
-static ssize_t dev_read(struct file*, char*, size_t, loff_t*);
-static ssize_t dev_write(struct file*, const char*, size_t, loff_t*);
+static int nacs_dev_open(struct inode*, struct file*);
+static int nacs_dev_release(struct inode*, struct file*);
+
+/* static ssize_t nacs_dev_read(struct file*, char*, size_t, loff_t*); */
+/* static ssize_t nacs_dev_write(struct file*, const char*, size_t, loff_t*); */
 
 static struct file_operations fops = {
     .owner = THIS_MODULE,
-    .open = dev_open,
-    .read = dev_read,
-    .write = dev_write,
-    .release = dev_release,
+    .open = nacs_dev_open,
+    /* .read = nacs_dev_read, */
+    /* .write = nacs_dev_write, */
+    .release = nacs_dev_release,
 };
 
 static int majorNumber;
@@ -108,43 +106,24 @@ static void __exit knacs_exit(void)
     pr_debug("Goodbye.\n");
 }
 
-static int dev_open(struct inode *inodep, struct file *filep)
+static int nacs_dev_open(struct inode *inodep, struct file *filep)
 {
     pr_debug("open()\n");
     return 0;
 }
 
-static ssize_t dev_read(struct file *filep, char *buffer, size_t len,
-                        loff_t *offset)
-{
-    int error_count = 0;
-    // copy_to_user has the format ( * to, *from, size) and returns 0 on success
-    error_count = copy_to_user(buffer, message, size_of_message);
+/* static ssize_t */
+/* nacs_dev_read(struct file *filep, char *buffer, size_t len, loff_t *offset) */
+/* { */
+/* } */
 
-    if (error_count == 0) {
-        ssize_t size = size_of_message;
-        pr_info("Sent %d characters to the user\n", size_of_message);
-        size_of_message = 0;
-        return size;
-    }
-    else {
-        pr_info("Failed to send %d characters to the user\n", error_count);
-        return -EFAULT;
-    }
-}
+/* static ssize_t */
+/* nacs_dev_write(struct file *filep, const char *buffer, size_t len, */
+/*                loff_t *offset) */
+/* { */
+/* } */
 
-static ssize_t dev_write(struct file *filep, const char *buffer, size_t len,
-                         loff_t *offset)
-{
-    // appending received string with its length
-    sprintf(message, "%s(%d letters)", buffer, len);
-    // store the length of the stored message
-    size_of_message = strlen(message);
-    pr_info("Received %d characters from the user\n", len);
-    return len;
-}
-
-static int dev_release(struct inode *inodep, struct file *filep)
+static int nacs_dev_release(struct inode *inodep, struct file *filep)
 {
     pr_debug("close()\n");
     return 0;
