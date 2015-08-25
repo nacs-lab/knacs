@@ -141,6 +141,7 @@ reg_dev_fail:
 
 static void __exit knacs_exit(void)
 {
+    platform_driver_unregister(&knacs_pulse_ctl_driver);
     device_destroy(nacsClass, MKDEV(majorNumber, 0)); // remove the device
     class_unregister(nacsClass); // unregister the device class
     class_destroy(nacsClass); // remove the device class
