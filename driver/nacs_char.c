@@ -146,27 +146,33 @@ static void __exit knacs_exit(void)
     pr_debug("Goodbye.\n");
 }
 
+static struct resource *pulse_ctl_regs = NULL;
 static int knacs_pulse_ctl_probe(struct platform_device *pdev)
 {
-    struct resource *res;
-    void *regs;
-
+    if (pulse_ctl_regs) {
+        pr_alert("Only one pulse controller is allowed\n");
+        return -EINVAL;
+    }
     // Sanity check, should not be necessary
     if (!of_match_device(knacs_pulse_ctl_of_ids, &pdev->dev))
         return -EINVAL;
-    res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
-    regs = devm_ioremap_resource(&pdev->dev, res);
-    if (IS_ERR(regs))
-        return PTR_ERR(regs);
+    pulse_ctl_regs = platform_get_resource(pdev, IORESOURCE_MEM, 0);
+    if  (!pulse_ctl_regs ||
+         !request_mem_region(pulse_ctl_regs->start,
+                             resource_size(pulse_ctl_regs),
+                             "knacs-pulse-controller")) {
+        pr_alert("Failed to request pulse controller registers\n");
+        return -EBUSY;
+    }
     pr_info("pulse controller probe\n");
-    pr_info("res->start @0x%x\n", res->start);
-    pr_info("reg @0x%lx\n", (long)regs);
+    pr_info("    res->start @0x%x\n", pulse_ctl_regs->start);
 
     return 0;
 }
 
 static int knacs_pulse_ctl_remove(struct platform_device *pdev)
 {
+    pulse_ctl_regs = NULL;
     return 0;
 }
 
