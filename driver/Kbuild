@@ -1,2 +1,3 @@
 obj-m := knacs.o
 knacs-y := nacs_char.o
+ccflags-y := -std=gnu11 -Wno-declaration-after-statement
