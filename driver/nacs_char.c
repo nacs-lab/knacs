@@ -27,6 +27,13 @@
 #include <linux/device.h>
 #include <linux/kernel.h>
 #include <linux/fs.h>
+#include <linux/platform_device.h>
+
+#include <linux/of_address.h>
+#include <linux/of_dma.h>
+#include <linux/of_irq.h>
+#include <linux/of_platform.h>
+
 #include <asm/uaccess.h>
 
 #include "knacs.h"
@@ -66,6 +73,24 @@ static int majorNumber;
 static struct class *nacsClass = NULL;
 static struct device *knacsDevice = NULL;
 
+static int knacs_pulse_ctl_probe(struct platform_device*);
+static int knacs_pulse_ctl_remove(struct platform_device*);
+
+static const struct of_device_id knacs_pulse_ctl_of_ids[] = {
+    { .compatible = "xlnx,pulse-controller-5.0",},
+    {}
+};
+
+static struct platform_driver knacs_pulse_ctl_driver = {
+    .driver = {
+        .name = "knacs_pulse_controller",
+        .owner = THIS_MODULE,
+        .of_match_table = knacs_pulse_ctl_of_ids,
+    },
+    .probe = knacs_pulse_ctl_probe,
+    .remove = knacs_pulse_ctl_remove,
+};
+
 static int __init knacs_init(void)
 {
     int err = 0;
@@ -95,9 +120,15 @@ static int __init knacs_init(void)
         err = PTR_ERR(knacsDevice);
         goto dev_create_fail;
     }
-    pr_info("Device class created correctly\n");
+
+    if ((err = platform_driver_register(&knacs_pulse_ctl_driver))) {
+        pr_alert("Failed to register pulse controller driver\n");
+        goto pulse_ctl_reg_fail;
+    }
     return 0;
 
+pulse_ctl_reg_fail:
+    device_destroy(nacsClass, MKDEV(majorNumber, 0)); // remove the device
 dev_create_fail:
     class_destroy(nacsClass);
 class_create_fail:
@@ -113,6 +144,30 @@ static void __exit knacs_exit(void)
     class_destroy(nacsClass); // remove the device class
     unregister_chrdev(majorNumber, DEVICE_NAME); // unregister the major number
     pr_debug("Goodbye.\n");
+}
+
+static int knacs_pulse_ctl_probe(struct platform_device *pdev)
+{
+    struct resource *res;
+    void *regs;
+
+    // Sanity check, should not be necessary
+    if (!of_match_device(knacs_pulse_ctl_of_ids, &pdev->dev))
+        return -EINVAL;
+    res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
+    regs = devm_ioremap_resource(&pdev->dev, res);
+    if (IS_ERR(regs))
+        return PTR_ERR(regs);
+    pr_info("pulse controller probe\n");
+    pr_info("res->start @0x%x\n", res->start);
+    pr_info("reg @0x%lx\n", (long)regs);
+
+    return 0;
+}
+
+static int knacs_pulse_ctl_remove(struct platform_device *pdev)
+{
+    return 0;
 }
 
 static int
@@ -149,8 +204,9 @@ nacs_dev_ioctl(struct file *file, unsigned int cmd, unsigned long _arg)
         const int minor_ver = KNACS_MINOR_VER;
         knacs_version_t *arg = (knacs_version_t*)_arg;
         if (copy_to_user(&arg->major, &major_ver, sizeof(int)) ||
-            copy_to_user(&arg->minor, &minor_ver, sizeof(int)))
+            copy_to_user(&arg->minor, &minor_ver, sizeof(int))) {
             return -EFAULT;
+        }
         break;
     }
     default:
