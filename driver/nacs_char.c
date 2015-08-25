@@ -175,6 +175,7 @@ static int knacs_pulse_ctl_probe(struct platform_device *pdev)
 
 static int knacs_pulse_ctl_remove(struct platform_device *pdev)
 {
+    release_mem_region(pulse_ctl_regs->start, resource_size(pulse_ctl_regs));
     pulse_ctl_regs = NULL;
     return 0;
 }
