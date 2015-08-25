@@ -7,7 +7,9 @@ set(KNACS_DRIVER_SRCS
   pulse_ctrl.c
   pulse_ctrl.h
   obj_pool.h
-  obj_pool.c)
+  obj_pool.c
+  dma_stream.c
+  dma_stream.h)
 
 set(KNACS_OUTPUT_DIR "${CMAKE_CURRENT_BINARY_DIR}")
 
