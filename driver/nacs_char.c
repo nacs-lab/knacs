@@ -22,21 +22,13 @@
 // This code is based on the example by Derek Molloy at
 // http://derekmolloy.ie/writing-a-linux-kernel-module-part-2-a-character-device/
 
-#include <linux/init.h>
-#include <linux/module.h>
-#include <linux/device.h>
-#include <linux/kernel.h>
-#include <linux/fs.h>
-#include <linux/platform_device.h>
-
-#include <linux/of_address.h>
-#include <linux/of_dma.h>
-#include <linux/of_irq.h>
-#include <linux/of_platform.h>
-
-#include <asm/uaccess.h>
-
 #include "knacs.h"
+
+#include "pulse_ctrl.h"
+
+#include <linux/module.h>
+#include <linux/fs.h>
+#include <asm/uaccess.h>
 
 #define DEVICE_NAME "knacs"
 #define CLASS_NAME "nacs"
@@ -74,24 +66,6 @@ static struct file_operations knacs_fops = {
 static int majorNumber;
 static struct class *nacsClass = NULL;
 static struct device *knacsDevice = NULL;
-
-static int knacs_pulse_ctl_probe(struct platform_device*);
-static int knacs_pulse_ctl_remove(struct platform_device*);
-
-static const struct of_device_id knacs_pulse_ctl_of_ids[] = {
-    { .compatible = "xlnx,pulse-controller-5.0",},
-    {}
-};
-
-static struct platform_driver knacs_pulse_ctl_driver = {
-    .driver = {
-        .name = "knacs_pulse_controller",
-        .owner = THIS_MODULE,
-        .of_match_table = knacs_pulse_ctl_of_ids,
-    },
-    .probe = knacs_pulse_ctl_probe,
-    .remove = knacs_pulse_ctl_remove,
-};
 
 static int __init knacs_init(void)
 {
@@ -149,37 +123,6 @@ static void __exit knacs_exit(void)
     pr_debug("Goodbye.\n");
 }
 
-static struct resource *pulse_ctl_regs = NULL;
-static int knacs_pulse_ctl_probe(struct platform_device *pdev)
-{
-    if (pulse_ctl_regs) {
-        pr_alert("Only one pulse controller is allowed\n");
-        return -EINVAL;
-    }
-    // Sanity check, should not be necessary
-    if (!of_match_device(knacs_pulse_ctl_of_ids, &pdev->dev))
-        return -EINVAL;
-    pulse_ctl_regs = platform_get_resource(pdev, IORESOURCE_MEM, 0);
-    if  (!pulse_ctl_regs ||
-         !request_mem_region(pulse_ctl_regs->start,
-                             resource_size(pulse_ctl_regs),
-                             "knacs-pulse-controller")) {
-        pr_alert("Failed to request pulse controller registers\n");
-        return -EBUSY;
-    }
-    pr_info("pulse controller probe\n");
-    pr_info("    res->start @0x%x\n", pulse_ctl_regs->start);
-
-    return 0;
-}
-
-static int knacs_pulse_ctl_remove(struct platform_device *pdev)
-{
-    release_mem_region(pulse_ctl_regs->start, resource_size(pulse_ctl_regs));
-    pulse_ctl_regs = NULL;
-    return 0;
-}
-
 static int
 knacs_dev_open(struct inode *inodep, struct file *filep)
 {
@@ -224,23 +167,6 @@ knacs_dev_ioctl(struct file *file, unsigned int cmd, unsigned long _arg)
     }
 
     return 0;
-}
-
-static int
-knacs_dev_mmap_pulse_ctl(struct file *filp, struct vm_area_struct *vma)
-{
-    unsigned long requested_size = vma->vm_end - vma->vm_start;
-    if (requested_size > resource_size(pulse_ctl_regs)) {
-        pr_alert("MMap size too large for pulse controller\n");
-        return -EINVAL;
-    }
-
-    vma->vm_page_prot = pgprot_noncached(vma->vm_page_prot);
-    vma->vm_flags |= VM_IO;
-
-    return remap_pfn_range(vma, vma->vm_start,
-                           pulse_ctl_regs->start >> PAGE_SHIFT,
-                           requested_size, vma->vm_page_prot);
 }
 
 static int

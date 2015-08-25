@@ -3,7 +3,9 @@
 set(KNACS_DRIVER_SRCS
   Kbuild
   nacs_char.c
-  knacs.h)
+  knacs.h
+  pulse_ctrl.c
+  pulse_ctrl.h)
 
 set(KNACS_OUTPUT_DIR "${CMAKE_CURRENT_BINARY_DIR}")
 
