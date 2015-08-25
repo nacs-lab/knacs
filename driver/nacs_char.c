@@ -25,6 +25,7 @@
 #include "knacs.h"
 
 #include "pulse_ctrl.h"
+#include "dma_stream.h"
 
 #include <linux/module.h>
 #include <linux/fs.h>
@@ -100,8 +101,15 @@ static int __init knacs_init(void)
 
     if ((err = knacs_pulse_ctl_init()))
         goto pulse_ctl_init_fail;
+
+    if ((err = platform_driver_register(&knacs_dma_stream_driver))) {
+        pr_alert("Failed to register dma stream driver\n");
+        goto dma_stream_reg_fail;
+    }
     return 0;
 
+dma_stream_reg_fail:
+    knacs_pulse_ctl_exit();
 pulse_ctl_init_fail:
     device_destroy(nacsClass, MKDEV(majorNumber, 0)); // remove the device
 dev_create_fail:
@@ -114,6 +122,7 @@ reg_dev_fail:
 
 static void __exit knacs_exit(void)
 {
+    platform_driver_unregister(&knacs_dma_stream_driver);
     knacs_pulse_ctl_exit();
     device_destroy(nacsClass, MKDEV(majorNumber, 0)); // remove the device
     class_unregister(nacsClass); // unregister the device class
