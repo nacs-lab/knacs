@@ -51,24 +51,24 @@ MODULE_VERSION("0.1");
 
 // The prototype functions for the character driver -- must come before the
 // struct definition
-static int nacs_dev_open(struct inode*, struct file*);
-static int nacs_dev_release(struct inode*, struct file*);
+static int knacs_dev_open(struct inode*, struct file*);
+static int knacs_dev_release(struct inode*, struct file*);
 
-/* static ssize_t nacs_dev_read(struct file*, char*, size_t, loff_t*); */
-/* static ssize_t nacs_dev_write(struct file*, const char*, size_t, loff_t*); */
+/* static ssize_t knacs_dev_read(struct file*, char*, size_t, loff_t*); */
+/* static ssize_t knacs_dev_write(struct file*, const char*, size_t, loff_t*); */
 
-static long nacs_dev_ioctl(struct file *file, unsigned int cmd,
-                           unsigned long arg);
-static int nacs_dev_mmap(struct file *filp, struct vm_area_struct *vma);
+static long knacs_dev_ioctl(struct file *file, unsigned int cmd,
+                            unsigned long arg);
+static int knacs_dev_mmap(struct file *filp, struct vm_area_struct *vma);
 
-static struct file_operations fops = {
+static struct file_operations knacs_fops = {
     .owner = THIS_MODULE,
-    .open = nacs_dev_open,
-    /* .read = nacs_dev_read, */
-    /* .write = nacs_dev_write, */
-    .release = nacs_dev_release,
-    .mmap = nacs_dev_mmap,
-    .unlocked_ioctl = nacs_dev_ioctl,
+    .open = knacs_dev_open,
+    /* .read = knacs_dev_read, */
+    /* .write = knacs_dev_write, */
+    .release = knacs_dev_release,
+    .mmap = knacs_dev_mmap,
+    .unlocked_ioctl = knacs_dev_ioctl,
 };
 
 static int majorNumber;
@@ -98,7 +98,7 @@ static int __init knacs_init(void)
     int err = 0;
     // Try to dynamically allocate a major number for the device --
     // more difficult but worth it
-    majorNumber = register_chrdev(0, DEVICE_NAME, &fops);
+    majorNumber = register_chrdev(0, DEVICE_NAME, &knacs_fops);
     if (majorNumber < 0) {
         pr_alert("Failed to register a major number\n");
         err = majorNumber;
@@ -181,32 +181,32 @@ static int knacs_pulse_ctl_remove(struct platform_device *pdev)
 }
 
 static int
-nacs_dev_open(struct inode *inodep, struct file *filep)
+knacs_dev_open(struct inode *inodep, struct file *filep)
 {
     pr_debug("open()\n");
     return 0;
 }
 
 /* static ssize_t */
-/* nacs_dev_read(struct file *filep, char *buffer, size_t len, loff_t *offset) */
+/* knacs_dev_read(struct file *filep, char *buffer, size_t len, loff_t *offset) */
 /* { */
 /* } */
 
 /* static ssize_t */
-/* nacs_dev_write(struct file *filep, const char *buffer, size_t len, */
+/* knacs_dev_write(struct file *filep, const char *buffer, size_t len, */
 /*                loff_t *offset) */
 /* { */
 /* } */
 
 static int
-nacs_dev_release(struct inode *inodep, struct file *filep)
+knacs_dev_release(struct inode *inodep, struct file *filep)
 {
     pr_debug("close()\n");
     return 0;
 }
 
 static long
-nacs_dev_ioctl(struct file *file, unsigned int cmd, unsigned long _arg)
+knacs_dev_ioctl(struct file *file, unsigned int cmd, unsigned long _arg)
 {
     switch (cmd) {
     case KNACS_GET_VERSION: {
@@ -227,7 +227,7 @@ nacs_dev_ioctl(struct file *file, unsigned int cmd, unsigned long _arg)
 }
 
 static int
-nacs_dev_mmap_pulse_ctl(struct file *filp, struct vm_area_struct *vma)
+knacs_dev_mmap_pulse_ctl(struct file *filp, struct vm_area_struct *vma)
 {
     unsigned long requested_size = vma->vm_end - vma->vm_start;
     if (requested_size > resource_size(pulse_ctl_regs)) {
@@ -244,12 +244,12 @@ nacs_dev_mmap_pulse_ctl(struct file *filp, struct vm_area_struct *vma)
 }
 
 static int
-nacs_dev_mmap(struct file *filp, struct vm_area_struct *vma)
+knacs_dev_mmap(struct file *filp, struct vm_area_struct *vma)
 {
     // The first page is the pulse controller registers
     if (vma->vm_pgoff == 0)
-        return nacs_dev_mmap_pulse_ctl(filp, vma);
-    pr_alert("mapping unknown pages.\n");
+        return knacs_dev_mmap_pulse_ctl(filp, vma);
+    pr_alert("Mapping unknown pages.\n");
     return -EINVAL;
 }
 
