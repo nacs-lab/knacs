@@ -59,6 +59,7 @@ static int nacs_dev_release(struct inode*, struct file*);
 
 static long nacs_dev_ioctl(struct file *file, unsigned int cmd,
                            unsigned long arg);
+static int nacs_dev_mmap(struct file *filp, struct vm_area_struct *vma);
 
 static struct file_operations fops = {
     .owner = THIS_MODULE,
@@ -66,6 +67,7 @@ static struct file_operations fops = {
     /* .read = nacs_dev_read, */
     /* .write = nacs_dev_write, */
     .release = nacs_dev_release,
+    .mmap = nacs_dev_mmap,
     .unlocked_ioctl = nacs_dev_ioctl,
 };
 
@@ -220,6 +222,33 @@ nacs_dev_ioctl(struct file *file, unsigned int cmd, unsigned long _arg)
     }
 
     return 0;
+}
+
+static int
+nacs_dev_mmap_pulse_ctl(struct file *filp, struct vm_area_struct *vma)
+{
+    unsigned long requested_size = vma->vm_end - vma->vm_start;
+    if (requested_size > resource_size(pulse_ctl_regs)) {
+        pr_alert("MMap size too large for pulse controller\n");
+        return -EINVAL;
+    }
+
+    vma->vm_page_prot = pgprot_noncached(vma->vm_page_prot);
+    vma->vm_flags |= VM_IO;
+
+    return remap_pfn_range(vma, vma->vm_start,
+                           pulse_ctl_regs->start >> PAGE_SHIFT,
+                           requested_size, vma->vm_page_prot);
+}
+
+static int
+nacs_dev_mmap(struct file *filp, struct vm_area_struct *vma)
+{
+    // The first page is the pulse controller registers
+    if (vma->vm_pgoff == 0)
+        return nacs_dev_mmap_pulse_ctl(filp, vma);
+    pr_alert("mapping unknown pages.\n");
+    return -EINVAL;
 }
 
 module_init(knacs_init);
