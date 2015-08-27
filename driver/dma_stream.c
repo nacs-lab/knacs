@@ -32,10 +32,7 @@ static struct task_struct *slave_thread = NULL;
 static int
 knacs_dma_stream_slave(void *data)
 {
-    int counter = 0;
     while (!kthread_should_stop()) {
-        if (counter++ % 300 == 10)
-            pr_info("DMA slave: %d\n", counter);
         msleep(200);
     }
     return 0;
@@ -63,7 +60,7 @@ knacs_dma_stream_probe(struct platform_device *pdev)
         pr_alert("Requesting Rx channel failed\n");
         goto free_tx;
     }
-    slave_thread = kthread_run(knacs_dma_stream_slave, NULL, "%s-%s",
+    slave_thread = kthread_run(knacs_dma_stream_slave, NULL, "knacs-%s-%s",
                                dma_chan_name(dma_stream_tx),
                                dma_chan_name(dma_stream_rx));
     if (IS_ERR(slave_thread)) {
