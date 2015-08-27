@@ -68,6 +68,8 @@ knacs_dev_mmap_pulse_ctl(struct file *filp, struct vm_area_struct *vma)
     vma->vm_page_prot = pgprot_noncached(vma->vm_page_prot);
     vma->vm_flags |= VM_IO;
 
+    pr_debug("mmap pulse controller\n");
+
     return remap_pfn_range(vma, vma->vm_start,
                            pulse_ctl_regs->start >> PAGE_SHIFT,
                            requested_size, vma->vm_page_prot);
