@@ -9,7 +9,9 @@ set(KNACS_DRIVER_SRCS
   obj_pool.h
   obj_pool.c
   dma_stream.c
-  dma_stream.h)
+  dma_stream.h
+  dma_pages.h
+  dma_pages.c)
 
 set(KNACS_OUTPUT_DIR "${CMAKE_CURRENT_BINARY_DIR}")
 
