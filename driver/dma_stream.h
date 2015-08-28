@@ -20,8 +20,7 @@
 #ifndef __KNACS_DMA_STREAM_H__
 #define __KNACS_DMA_STREAM_H__
 
-#include <linux/platform_device.h>
-
-extern struct platform_driver knacs_dma_stream_driver;
+int knacs_dma_stream_init(void);
+void knacs_dma_stream_exit(void);
 
 #endif

@@ -20,14 +20,31 @@
 #define pr_fmt(fmt) "KNaCs: " fmt
 
 #include "dma_stream.h"
+#include "obj_pool.h"
 
 #include <linux/amba/xilinx_dma.h>
 #include <linux/kthread.h>
 #include <linux/delay.h>
+#include <linux/platform_device.h>
 
 static struct dma_chan *knacs_dma_stream_tx = NULL;
 static struct dma_chan *knacs_dma_stream_rx = NULL;
 static struct task_struct *knacs_slave_thread = NULL;
+static knacs_objpool *knacs_dma_pages_pool = NULL;
+
+static void*
+knacs_dma_stream_page_alloc(void *data)
+{
+    (void)data;
+    return (void*)__get_free_page(GFP_KERNEL | __GFP_DMA);
+}
+
+static void
+knacs_dma_stream_page_free(void *page, void *data)
+{
+    (void)data;
+    free_page((unsigned long)page);
+}
 
 static int
 knacs_dma_stream_slave(void *data)
@@ -112,7 +129,7 @@ static const struct of_device_id knacs_dma_stream_of_ids[] = {
     {}
 };
 
-struct platform_driver knacs_dma_stream_driver = {
+static struct platform_driver knacs_dma_stream_driver = {
     .driver = {
         .name = "knacs_dma_stream",
         .owner = THIS_MODULE,
@@ -121,3 +138,36 @@ struct platform_driver knacs_dma_stream_driver = {
     .probe = knacs_dma_stream_probe,
     .remove = knacs_dma_stream_remove,
 };
+
+int __init
+knacs_dma_stream_init(void)
+{
+    int err;
+
+    knacs_dma_pages_pool =
+        knacs_objpool_create(128, knacs_dma_stream_page_alloc,
+                             knacs_dma_stream_page_free, NULL);
+    if (IS_ERR(knacs_dma_pages_pool)) {
+        pr_alert("Failed to allocate dma memory pool\n");
+        err = PTR_ERR(knacs_dma_pages_pool);
+        goto err;
+    }
+
+    if ((err = platform_driver_register(&knacs_dma_stream_driver))) {
+        pr_alert("Failed to register dma stream driver\n");
+        goto free_pool;
+    }
+    return 0;
+
+free_pool:
+    knacs_objpool_destroy(knacs_dma_pages_pool);
+err:
+    return err;
+}
+
+void
+knacs_dma_stream_exit(void)
+{
+    platform_driver_unregister(&knacs_dma_stream_driver);
+    knacs_objpool_destroy(knacs_dma_pages_pool);
+}
