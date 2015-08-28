@@ -53,7 +53,7 @@ static long knacs_dev_ioctl(struct file *file, unsigned int cmd,
                             unsigned long arg);
 static int knacs_dev_mmap(struct file *filp, struct vm_area_struct *vma);
 
-static struct file_operations knacs_fops = {
+static const struct file_operations knacs_fops = {
     .owner = THIS_MODULE,
     .open = knacs_dev_open,
     /* .read = knacs_dev_read, */
