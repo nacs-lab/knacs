@@ -25,9 +25,9 @@
 #include <linux/kthread.h>
 #include <linux/delay.h>
 
-static struct dma_chan *dma_stream_tx = NULL;
-static struct dma_chan *dma_stream_rx = NULL;
-static struct task_struct *slave_thread = NULL;
+static struct dma_chan *knacs_dma_stream_tx = NULL;
+static struct dma_chan *knacs_dma_stream_rx = NULL;
+static struct task_struct *knacs_slave_thread = NULL;
 
 static int
 knacs_dma_stream_slave(void *data)
@@ -41,67 +41,68 @@ knacs_dma_stream_slave(void *data)
 static int
 knacs_dma_stream_probe(struct platform_device *pdev)
 {
-    if (dma_stream_tx || dma_stream_rx) {
+    if (knacs_dma_stream_tx || knacs_dma_stream_rx) {
         pr_alert("Only one pulse controller is allowed\n");
         return -EINVAL;
     }
 
     int err;
-    dma_stream_tx = dma_request_slave_channel(&pdev->dev, "axidma0");
-    if (IS_ERR(dma_stream_tx)) {
-        err = PTR_ERR(dma_stream_tx);
+    knacs_dma_stream_tx = dma_request_slave_channel(&pdev->dev, "axidma0");
+    if (IS_ERR(knacs_dma_stream_tx)) {
+        err = PTR_ERR(knacs_dma_stream_tx);
         pr_alert("Requesting Tx channel failed\n");
         goto clear_tx;
     }
 
-    dma_stream_rx = dma_request_slave_channel(&pdev->dev, "axidma1");
-    if (IS_ERR(dma_stream_rx)) {
-        err = PTR_ERR(dma_stream_rx);
+    knacs_dma_stream_rx = dma_request_slave_channel(&pdev->dev, "axidma1");
+    if (IS_ERR(knacs_dma_stream_rx)) {
+        err = PTR_ERR(knacs_dma_stream_rx);
         pr_alert("Requesting Rx channel failed\n");
         goto free_tx;
     }
-    slave_thread = kthread_run(knacs_dma_stream_slave, NULL, "knacs-%s-%s",
-                               dma_chan_name(dma_stream_tx),
-                               dma_chan_name(dma_stream_rx));
-    if (IS_ERR(slave_thread)) {
-        err = PTR_ERR(slave_thread);
+    knacs_slave_thread = kthread_run(knacs_dma_stream_slave, NULL,
+                                     "knacs-%s-%s",
+                                     dma_chan_name(knacs_dma_stream_tx),
+                                     dma_chan_name(knacs_dma_stream_rx));
+    if (IS_ERR(knacs_slave_thread)) {
+        err = PTR_ERR(knacs_slave_thread);
         pr_alert("Failed to create thread\n");
         goto free_thread;
     }
 
     /* srcbuf and dstbuf are allocated by the thread itself */
-    get_task_struct(slave_thread);
+    get_task_struct(knacs_slave_thread);
 
     pr_info("dma streams created.\n");
 
     return 0;
 
 free_thread:
-    slave_thread = NULL;
-    dma_release_channel(dma_stream_rx);
+    knacs_slave_thread = NULL;
+    dma_release_channel(knacs_dma_stream_rx);
 free_tx:
-    dma_stream_rx = NULL;
-    dma_release_channel(dma_stream_tx);
+    knacs_dma_stream_rx = NULL;
+    dma_release_channel(knacs_dma_stream_tx);
 clear_tx:
-    dma_stream_tx = NULL;
+    knacs_dma_stream_tx = NULL;
     return err;
 }
 
 static int
 knacs_dma_stream_remove(struct platform_device *pdev)
 {
-    if (slave_thread) {
-        kthread_stop(slave_thread);
-        put_task_struct(slave_thread);
-        slave_thread = NULL;
+    if (knacs_slave_thread) {
+        kthread_stop(knacs_slave_thread);
+        put_task_struct(knacs_slave_thread);
+        knacs_slave_thread = NULL;
     }
-    if (dma_stream_rx) {
-        dma_release_channel(dma_stream_rx);
-        dma_stream_rx = NULL;
+    if (knacs_dma_stream_rx) {
+        dma_release_channel(knacs_dma_stream_rx);
+        knacs_dma_stream_rx = NULL;
     }
-    if (dma_stream_tx) {
-        dma_release_channel(dma_stream_tx);
-        dma_stream_tx = NULL;
+    if (knacs_dma_stream_tx) {
+        dma_release_channel(knacs_dma_stream_tx);
+        knacs_dma_stream_tx = NULL;
     }
     return 0;
 }
