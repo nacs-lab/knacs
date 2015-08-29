@@ -90,7 +90,7 @@ knacs_dma_page_ensure_page_slot(knacs_dma_area *area, int idx)
 }
 
 static knacs_dma_page*
-_knacs_dma_area_get_page(knacs_dma_area *area, int idx)
+_knacs_dma_area_get_page(knacs_dma_area *area, int idx, int zero_init)
 {
     int err = knacs_dma_page_ensure_page_slot(area, idx);
     if (err) {
@@ -101,15 +101,16 @@ _knacs_dma_area_get_page(knacs_dma_area *area, int idx)
     }
     knacs_dma_page *page = knacs_dma_page_new();
     area->pages[idx] = page;
+    memset(page->virt_addr, 0, PAGE_SIZE);
     return page;
 }
 
 knacs_dma_page*
-knacs_dma_area_get_page(knacs_dma_area *area, int idx)
+knacs_dma_area_get_page(knacs_dma_area *area, int idx, int zero_init)
 {
     if (down_interruptible(&area->mutex))
         return ERR_PTR(-ERESTARTSYS);
-    knacs_dma_page *page = _knacs_dma_area_get_page(area, idx);
+    knacs_dma_page *page = _knacs_dma_area_get_page(area, idx, zero_init);
     up(&area->mutex);
     return page;
 }
