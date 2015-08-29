@@ -21,6 +21,7 @@
 
 #include "dma_stream.h"
 #include "dma_pages.h"
+#include "dma_area.h"
 
 #include <linux/amba/xilinx_dma.h>
 #include <linux/kthread.h>
@@ -37,6 +38,52 @@ knacs_dma_stream_slave(void *data)
     while (!kthread_should_stop()) {
         msleep(200);
     }
+    return 0;
+}
+
+static void
+knacs_dma_stream_vm_open(struct vm_area_struct *vma)
+{
+    knacs_dma_area *area = vma->vm_private_data;
+    knacs_dma_area_ref(area);
+}
+
+static void
+knacs_dma_stream_vm_close(struct vm_area_struct *vma)
+{
+    knacs_dma_area *area = vma->vm_private_data;
+    knacs_dma_area_unref(area);
+}
+
+static int
+knacs_dma_stream_vm_fault(struct vm_area_struct *vma, struct vm_fault *vmf)
+{
+    knacs_dma_area *area = vma->vm_private_data;
+    pgoff_t index = vmf->pgoff - 1;
+    pr_info("KNaCs: fault index@%d\n", (int)index);
+    knacs_dma_page *page = knacs_dma_area_get_page(area, index);
+    if (IS_ERR(page))
+        return VM_FAULT_OOM;
+    unsigned long paddr = (unsigned long)page->virt_addr;
+    unsigned long pfn = paddr >> PAGE_SHIFT;
+
+    vm_insert_pfn(vma, (unsigned long)vmf->virtual_address, pfn);
+
+    return VM_FAULT_NOPAGE;
+}
+
+static const struct vm_operations_struct knacs_dma_stream_vm_ops = {
+    .open = knacs_dma_stream_vm_open,
+    .close = knacs_dma_stream_vm_close,
+    .fault = knacs_dma_stream_vm_fault,
+};
+
+int
+knacs_dma_stream_mmap(struct file *filp, struct vm_area_struct *vma)
+{
+    pr_info("KNaCs: mmap buffer\n");
+    vma->vm_ops = &knacs_dma_stream_vm_ops;
+    vma->vm_private_data = knacs_dma_area_new();
     return 0;
 }
 
