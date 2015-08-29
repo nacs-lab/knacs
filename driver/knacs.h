@@ -26,6 +26,11 @@ extern "C" {
 
 enum {
     KNACS_GET_VERSION,
+    _KNACS_IOCTL_GENERAL_MAX = (1 << 16),
+
+    _KNACS_IOCTL_PULSE_CTRL_MAX = (1 << 16) * 2,
+
+    _KNACS_IOCTL_DMA_STREAM_MAX = (1 << 16) * 3,
 };
 
 typedef struct {
