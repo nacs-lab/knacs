@@ -146,7 +146,7 @@ knacs_dev_release(struct inode *inodep, struct file *filep)
 }
 
 static long
-knacs_dev_ioctl(struct file *file, unsigned int cmd, unsigned long _arg)
+knacs_general_ioctl(struct file *file, unsigned int cmd, unsigned long _arg)
 {
     switch (cmd) {
     case KNACS_GET_VERSION: {
@@ -162,8 +162,20 @@ knacs_dev_ioctl(struct file *file, unsigned int cmd, unsigned long _arg)
     default:
         return -EINVAL;
     }
-
     return 0;
+}
+
+static long
+knacs_dev_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
+{
+    if (cmd <= _KNACS_IOCTL_GENERAL_MAX) {
+        return knacs_general_ioctl(filp, cmd, arg);
+    } else if (cmd <= _KNACS_IOCTL_PULSE_CTRL_MAX) {
+        return -EINVAL;
+    } else if (cmd <= _KNACS_IOCTL_DMA_STREAM_MAX) {
+        return -EINVAL;
+    }
+    return -EINVAL;
 }
 
 static int
