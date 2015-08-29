@@ -20,6 +20,7 @@
 #define pr_fmt(fmt) "KNaCs: " fmt
 
 #include "dma_pages.h"
+#include "obj_pool.h"
 
 #include <linux/slab.h>
 
