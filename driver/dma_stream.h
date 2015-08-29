@@ -25,5 +25,6 @@
 int knacs_dma_stream_init(void);
 void knacs_dma_stream_exit(void);
 int knacs_dma_stream_mmap(struct file*, struct vm_area_struct*);
+long knacs_dma_stream_ioctl(struct file*, unsigned int, unsigned long);
 
 #endif
