@@ -178,6 +178,8 @@ knacs_dev_mmap(struct file *filp, struct vm_area_struct *vma)
     // The first page is the pulse controller registers
     if (vma->vm_pgoff == 0)
         return knacs_pulse_ctl_mmap(filp, vma);
+    if (vma->vm_pgoff == 1)
+        return knacs_dma_stream_mmap(filp, vma);
     pr_alert("Mapping unknown pages.\n");
     return -EINVAL;
 }
