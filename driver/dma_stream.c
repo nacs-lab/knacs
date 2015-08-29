@@ -60,7 +60,6 @@ knacs_dma_stream_vm_fault(struct vm_area_struct *vma, struct vm_fault *vmf)
 {
     knacs_dma_area *area = vma->vm_private_data;
     pgoff_t index = vmf->pgoff - 1;
-    pr_info("KNaCs: fault index@%d\n", (int)index);
     knacs_dma_page *page = knacs_dma_area_get_page(area, index, 1);
     if (IS_ERR(page))
         return VM_FAULT_OOM;
@@ -69,6 +68,8 @@ knacs_dma_stream_vm_fault(struct vm_area_struct *vma, struct vm_fault *vmf)
      * Get the page, inc the use count, and return it
      */
     struct page *struct_page = virt_to_page(page->virt_addr);
+    if (!struct_page)
+        return VM_FAULT_SIGBUS;
     get_page(struct_page);
     vmf->page = struct_page;
     return 0;
