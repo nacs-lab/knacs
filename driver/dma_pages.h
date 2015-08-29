@@ -25,7 +25,6 @@
 #include <linux/dmaengine.h>
 
 typedef struct {
-    struct list_head node;
     void *virt_addr;
     dma_addr_t dma_addr;
     atomic_t refcnt;
