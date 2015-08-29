@@ -64,12 +64,14 @@ knacs_dma_stream_vm_fault(struct vm_area_struct *vma, struct vm_fault *vmf)
     knacs_dma_page *page = knacs_dma_area_get_page(area, index, 1);
     if (IS_ERR(page))
         return VM_FAULT_OOM;
-    unsigned long paddr = (unsigned long)page->virt_addr;
-    unsigned long pfn = paddr >> PAGE_SHIFT;
 
-    vm_insert_pfn(vma, (unsigned long)vmf->virtual_address, pfn);
-
-    return VM_FAULT_NOPAGE;
+    /*
+     * Get the page, inc the use count, and return it
+     */
+    struct page *struct_page = virt_to_page(page->virt_addr);
+    get_page(struct_page);
+    vmf->page = struct_page;
+    return 0;
 }
 
 static const struct vm_operations_struct knacs_dma_stream_vm_ops = {
