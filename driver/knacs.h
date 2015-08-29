@@ -26,12 +26,23 @@ extern "C" {
 
 enum {
     KNACS_GET_VERSION,
+    _KNACS_IOCTL_GENERAL_MAX = (1 << 16),
+
+    _KNACS_IOCTL_PULSE_CTRL_MAX = (1 << 16) * 2,
+    KNACS_SEND_DMA_BUFFER,
+
+    _KNACS_IOCTL_DMA_STREAM_MAX = (1 << 16) * 3,
 };
 
 typedef struct {
     int major;
     int minor;
 } knacs_version_t;
+
+typedef struct {
+    unsigned long len;
+    void *buff;
+} knacs_dma_buffer_t;
 
 #ifdef __cplusplus
 }

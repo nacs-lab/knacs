@@ -22,11 +22,13 @@
 #include "dma_stream.h"
 #include "dma_pages.h"
 #include "dma_area.h"
+#include "knacs.h"
 
 #include <linux/amba/xilinx_dma.h>
 #include <linux/kthread.h>
 #include <linux/delay.h>
 #include <linux/platform_device.h>
+#include <asm/uaccess.h>
 
 static struct dma_chan *knacs_dma_stream_tx = NULL;
 static struct dma_chan *knacs_dma_stream_rx = NULL;
@@ -86,6 +88,27 @@ knacs_dma_stream_mmap(struct file *filp, struct vm_area_struct *vma)
 {
     vma->vm_ops = &knacs_dma_stream_vm_ops;
     vma->vm_private_data = knacs_dma_area_new();
+    return 0;
+}
+
+long
+knacs_dma_stream_ioctl(struct file *filp, unsigned int cmd, unsigned long _arg)
+{
+    switch (cmd) {
+    case KNACS_SEND_DMA_BUFFER: {
+        knacs_dma_buffer_t buff = {0, 0};
+        if (copy_from_user(&buff, (void*)_arg, sizeof(knacs_dma_buffer_t)))
+            return -EFAULT;
+        unsigned long buff_addr = (unsigned long)buff.buff;
+        struct vm_area_struct *vma = find_vma(current->mm, buff_addr);
+        if (!vma || vma->vm_file != filp || vma->vm_pgoff != 1 ||
+            vma->vm_start + buff.len > vma->vm_end)
+            return -EFAULT;
+        vm_munmap(vma->vm_start, vma->vm_end - vma->vm_start);
+    }
+    default:
+        return -EINVAL;
+    }
     return 0;
 }
 
