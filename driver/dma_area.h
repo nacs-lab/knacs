@@ -32,7 +32,8 @@ void knacs_dma_area_unref(knacs_dma_area*);
 void knacs_dma_area_lock(knacs_dma_area *area);
 void knacs_dma_area_unlock(knacs_dma_area *area);
 
-struct knacs_dma_page *knacs_dma_area_get_page(knacs_dma_area*, int);
+struct knacs_dma_page *knacs_dma_area_get_page(knacs_dma_area*, int,
+                                               int zero_init);
 struct knacs_dma_page **knacs_dma_area_get_all_pages(knacs_dma_area*, int*);
 
 #endif
