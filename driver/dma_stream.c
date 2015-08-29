@@ -84,7 +84,6 @@ static const struct vm_operations_struct knacs_dma_stream_vm_ops = {
 int
 knacs_dma_stream_mmap(struct file *filp, struct vm_area_struct *vma)
 {
-    pr_info("KNaCs: mmap buffer\n");
     vma->vm_ops = &knacs_dma_stream_vm_ops;
     vma->vm_private_data = knacs_dma_area_new();
     return 0;

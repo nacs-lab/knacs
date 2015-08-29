@@ -130,7 +130,6 @@ static void __exit knacs_exit(void)
 static int
 knacs_dev_open(struct inode *inodep, struct file *filep)
 {
-    pr_debug("open()\n");
     return 0;
 }
 
@@ -148,7 +147,6 @@ knacs_dev_open(struct inode *inodep, struct file *filep)
 static int
 knacs_dev_release(struct inode *inodep, struct file *filep)
 {
-    pr_debug("close()\n");
     return 0;
 }
 
