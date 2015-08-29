@@ -33,11 +33,10 @@ knacs_dma_page_alloc(void *data)
     void *addr = (void*)__get_free_page(GFP_KERNEL | __GFP_DMA);
     if (!addr)
         return NULL;
-    knacs_dma_page *page = kmalloc(sizeof(knacs_dma_page),
-                                          GFP_KERNEL);
+    knacs_dma_page *page = kmalloc(sizeof(knacs_dma_page), GFP_KERNEL);
     if (!page)
         return NULL;
-    page->virt_addr = page;
+    page->virt_addr = addr;
     return page;
 }
 
