@@ -1,3 +1,4 @@
 obj-m := knacs.o
-knacs-y := nacs_char.o pulse_ctrl.o obj_pool.o dma_stream.o dma_pages.o
+knacs-y := nacs_char.o pulse_ctrl.o obj_pool.o dma_stream.o dma_pages.o \
+        dma_area.o
 ccflags-y := -std=gnu11 -Wno-declaration-after-statement

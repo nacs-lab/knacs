@@ -17,21 +17,22 @@
  *   02110-1301, USA.                                                    *
  *************************************************************************/
 
-#ifndef __KNACS_DMA_PAGES_H__
-#define __KNACS_DMA_PAGES_H__
+#ifndef __KNACS_DMA_AREA_H__
+#define __KNACS_DMA_AREA_H__
 
-#include <linux/dmaengine.h>
+#include <linux/types.h>
 
-typedef struct knacs_dma_page {
-    void *virt_addr;
-    dma_addr_t dma_addr;
-    atomic_t refcnt;
-} knacs_dma_page;
+struct knacs_dma_page;
+typedef struct knacs_dma_area knacs_dma_area;
 
-int knacs_dma_pages_init(void);
-void knacs_dma_pages_exit(void);
-knacs_dma_page *knacs_dma_page_new(void);
-knacs_dma_page *knacs_dma_page_ref(knacs_dma_page*);
-void knacs_dma_page_unref(knacs_dma_page*);
+knacs_dma_area *knacs_dma_area_new(void);
+knacs_dma_area *knacs_dma_area_ref(knacs_dma_area*);
+void knacs_dma_area_unref(knacs_dma_area*);
+
+void knacs_dma_area_lock(knacs_dma_area *area);
+void knacs_dma_area_unlock(knacs_dma_area *area);
+
+struct knacs_dma_page *knacs_dma_area_get_page(knacs_dma_area*, int);
+struct knacs_dma_page **knacs_dma_area_get_all_pages(knacs_dma_area*, int*);
 
 #endif

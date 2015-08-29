@@ -11,7 +11,9 @@ set(KNACS_DRIVER_SRCS
   dma_stream.c
   dma_stream.h
   dma_pages.h
-  dma_pages.c)
+  dma_pages.c
+  dma_area.h
+  dma_area.c)
 
 set(KNACS_OUTPUT_DIR "${CMAKE_CURRENT_BINARY_DIR}")
 
