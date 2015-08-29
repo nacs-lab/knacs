@@ -104,7 +104,32 @@ knacs_dma_stream_ioctl(struct file *filp, unsigned int cmd, unsigned long _arg)
         if (!vma || vma->vm_file != filp || vma->vm_pgoff != 1 ||
             vma->vm_start + buff.len > vma->vm_end)
             return -EFAULT;
+        if (!buff.len)
+            return -EINVAL;
+        knacs_dma_area *area = vma->vm_private_data;
+        knacs_dma_area_ref(area);
+
+        unsigned long start_offset = buff_addr - vma->vm_start;
+        unsigned long end_offset = buff_addr + buff.len - vma->vm_start;
         vm_munmap(vma->vm_start, vma->vm_end - vma->vm_start);
+        int len;
+        knacs_dma_page **pages = knacs_dma_area_get_all_pages(area, &len);
+        int has_hole = 0;
+        for (int i = 0;i < len;i++) {
+            if ((i + 1) * PAGE_SIZE <= start_offset)
+                continue;
+            if (i * PAGE_SIZE >= end_offset)
+                break;
+            if (!pages[i]) {
+                has_hole = 1;
+                break;
+            }
+        }
+        knacs_dma_area_unref(area);
+        if (has_hole) {
+            return -EFAULT;
+        }
+        break;
     }
     default:
         return -EINVAL;
