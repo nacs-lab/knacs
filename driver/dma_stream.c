@@ -215,6 +215,8 @@ knacs_dma_stream_ioctl(struct file *filp, unsigned int cmd, unsigned long _arg)
         knacs_dma_packet *packet =
             knacs_dma_packet_new_from_area(area, buff.len);
         knacs_dma_area_unref(area);
+        if (IS_ERR(packet))
+            return PTR_ERR(packet);
         knacs_dma_packet_map_sg_tx(packet);
         // temporary
         knacs_dma_packet_unmap_tx(packet);
