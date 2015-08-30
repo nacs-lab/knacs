@@ -52,7 +52,7 @@ knacs_dma_stream_notify_slave(void)
 }
 
 static void
-knacs_dma_packet_map_sg_tx(knacs_dma_packet *packet)
+knacs_dma_packet_map_tx(knacs_dma_packet *packet)
 {
     int num_pages = packet->num_pages;
     struct dma_device *dma_dev = knacs_dma_stream_tx->device;
@@ -217,7 +217,7 @@ knacs_dma_stream_ioctl(struct file *filp, unsigned int cmd, unsigned long _arg)
         knacs_dma_area_unref(area);
         if (IS_ERR(packet))
             return PTR_ERR(packet);
-        knacs_dma_packet_map_sg_tx(packet);
+        knacs_dma_packet_map_tx(packet);
         // temporary
         knacs_dma_packet_unmap_tx(packet);
         knacs_dma_packet_free(packet);
@@ -238,12 +238,18 @@ knacs_dma_stream_probe(struct platform_device *pdev)
     }
 
     int err;
+    struct xilinx_dma_config config;
+
     knacs_dma_stream_tx = dma_request_slave_channel(&pdev->dev, "axidma0");
     if (IS_ERR(knacs_dma_stream_tx)) {
         err = PTR_ERR(knacs_dma_stream_tx);
         pr_alert("Requesting Tx channel failed\n");
         goto clear_tx;
     }
+    /* Only one interrupt */
+    config.coalesc = 1;
+    config.delay = 0;
+    xilinx_dma_channel_set_config(knacs_dma_stream_tx, &config);
 
     knacs_dma_stream_rx = dma_request_slave_channel(&pdev->dev, "axidma1");
     if (IS_ERR(knacs_dma_stream_rx)) {
@@ -251,6 +257,11 @@ knacs_dma_stream_probe(struct platform_device *pdev)
         pr_alert("Requesting Rx channel failed\n");
         goto free_tx;
     }
+    /* Only one interrupt */
+    config.coalesc = 1;
+    config.delay = 0;
+    xilinx_dma_channel_set_config(knacs_dma_stream_rx, &config);
+
     knacs_slave_thread = kthread_run(knacs_dma_stream_slave, NULL,
                                      "knacs-%s-%s",
                                      dma_chan_name(knacs_dma_stream_tx),
