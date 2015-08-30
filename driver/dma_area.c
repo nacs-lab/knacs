@@ -99,15 +99,13 @@ _knacs_dma_area_get_page(knacs_dma_area *area, int idx, int zero_init)
     if (area->pages[idx]) {
         return area->pages[idx];
     }
-    knacs_dma_page *page = knacs_dma_page_new();
+    knacs_dma_page *page = knacs_dma_page_new(zero_init);
     if (IS_ERR(page)) {
         return page;
     }
     area->pages[idx] = page;
     if (area->num_page <= idx)
         area->num_page = idx + 1;
-    if (zero_init)
-        memset(page->virt_addr, 0, PAGE_SIZE);
     return page;
 }
 
