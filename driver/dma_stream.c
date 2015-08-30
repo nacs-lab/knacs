@@ -44,6 +44,10 @@ typedef struct {
     struct scatterlist *sgs;
 } knacs_dma_packet;
 
+static DEFINE_SPINLOCK(knacs_dma_stream_lock);
+static LIST_HEAD(knacs_dma_stream_to_write);
+static LIST_HEAD(knacs_dma_stream_written_wait);
+
 static struct dma_chan *knacs_dma_stream_tx = NULL;
 static struct dma_chan *knacs_dma_stream_rx = NULL;
 static struct task_struct *knacs_slave_thread = NULL;
@@ -144,11 +148,77 @@ knacs_dma_packet_free(knacs_dma_packet *packet)
     kfree(packet);
 }
 
+static void
+knacs_dma_stream_tx_callback(void *_packet)
+{
+    knacs_dma_packet *packet = _packet;
+    packet->finished = 1;
+    knacs_dma_stream_notify_slave();
+}
+
+static int
+knacs_dma_stream_queue_tx(knacs_dma_packet *packet)
+{
+    struct dma_device *tx_dev = knacs_dma_stream_tx->device;
+    struct dma_async_tx_descriptor *txd =
+        tx_dev->device_prep_slave_sg(knacs_dma_stream_tx, packet->sgs,
+                                     packet->num_pages, DMA_MEM_TO_DEV,
+                                     DMA_CTRL_ACK | DMA_PREP_INTERRUPT, NULL);
+    if (!txd)
+        return -ENOMEM;
+    unsigned long irqflags;
+
+    spin_lock_irqsave(&knacs_dma_stream_lock, irqflags);
+    list_del(&packet->node);
+    list_add_tail(&packet->node, &knacs_dma_stream_written_wait);
+    spin_unlock_irqrestore(&knacs_dma_stream_lock, irqflags);
+
+    txd->callback = knacs_dma_stream_tx_callback;
+    txd->callback_param = packet;
+    packet->cookie = txd->tx_submit(txd);
+    int err = dma_submit_error(packet->cookie);
+    if (err)
+        return err;
+    dma_async_issue_pending(knacs_dma_stream_tx);
+    return 0;
+}
+
 static int
 knacs_dma_stream_slave(void *data)
 {
     while (!kthread_should_stop()) {
         wait_for_completion(&knacs_dma_slave_cmp);
+        LIST_HEAD(packet_list);
+
+        unsigned long irqflags;
+
+        spin_lock_irqsave(&knacs_dma_stream_lock, irqflags);
+        list_splice_tail_init(&knacs_dma_stream_to_write, &packet_list);
+        spin_unlock_irqrestore(&knacs_dma_stream_lock, irqflags);
+
+        knacs_dma_packet *packet;
+        list_for_each_entry(packet, &packet_list, node) {
+            if (knacs_dma_stream_queue_tx(packet)) {
+                pr_alert("Error sending packet\n");
+                knacs_dma_packet_free(packet);
+            }
+        }
+
+        INIT_LIST_HEAD(&packet_list);
+        knacs_dma_packet *packet_next;
+
+        spin_lock_irqsave(&knacs_dma_stream_lock, irqflags);
+        list_for_each_entry_safe(packet, packet_next,
+                                 &knacs_dma_stream_written_wait, node) {
+            if (packet->finished) {
+                list_del(&packet->node);
+                list_add_tail(&packet->node, &packet_list);
+            }
+        }
+        spin_unlock_irqrestore(&knacs_dma_stream_lock, irqflags);
+        list_for_each_entry(packet, &packet_list, node) {
+            knacs_dma_packet_free(packet);
+        }
     }
     return 0;
 }
@@ -242,8 +312,11 @@ knacs_dma_stream_ioctl(struct file *filp, unsigned int cmd, unsigned long _arg)
         if (IS_ERR(packet))
             return PTR_ERR(packet);
         knacs_dma_packet_map(packet, knacs_dma_stream_tx, DMA_MEM_TO_DEV);
-        // temporary
-        knacs_dma_packet_free(packet);
+        unsigned long irqflags;
+        spin_lock_irqsave(&knacs_dma_stream_lock, irqflags);
+        list_add_tail(&packet->node, &knacs_dma_stream_to_write);
+        spin_unlock_irqrestore(&knacs_dma_stream_lock, irqflags);
+        knacs_dma_stream_notify_slave();
         break;
     }
     default:
