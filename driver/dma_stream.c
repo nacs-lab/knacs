@@ -33,12 +33,19 @@
 static struct dma_chan *knacs_dma_stream_tx = NULL;
 static struct dma_chan *knacs_dma_stream_rx = NULL;
 static struct task_struct *knacs_slave_thread = NULL;
+static DECLARE_COMPLETION(knacs_dma_slave_cmp);
+
+static void
+knacs_dma_stream_notify_slave(void)
+{
+    complete(&knacs_dma_slave_cmp);
+}
 
 static int
 knacs_dma_stream_slave(void *data)
 {
     while (!kthread_should_stop()) {
-        msleep(200);
+        wait_for_completion(&knacs_dma_slave_cmp);
     }
     return 0;
 }
@@ -191,6 +198,7 @@ static int
 knacs_dma_stream_remove(struct platform_device *pdev)
 {
     if (knacs_slave_thread) {
+        knacs_dma_stream_notify_slave();
         kthread_stop(knacs_slave_thread);
         put_task_struct(knacs_slave_thread);
         knacs_slave_thread = NULL;
