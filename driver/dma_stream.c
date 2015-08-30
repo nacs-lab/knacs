@@ -68,22 +68,6 @@ knacs_dma_packet_set_sg(knacs_dma_packet *packet, int i,
 }
 
 static void
-knacs_dma_packet_map(knacs_dma_packet *packet, struct dma_chan *chan,
-                     enum dma_data_direction dir)
-{
-    int num_pages = packet->num_pages;
-    struct dma_device *dma_dev = chan->device;
-    sg_init_table(packet->sgs, num_pages);
-    for (int i = 0;i < num_pages - 1;i++) {
-        knacs_dma_packet_set_sg(packet, i, dma_dev, PAGE_SIZE, dir);
-    }
-    int len = packet->len - (num_pages << PAGE_SHIFT);
-    knacs_dma_packet_set_sg(packet, num_pages, dma_dev, len, dir);
-    packet->dir = dir;
-    packet->dma_dev = dma_dev;
-}
-
-static void
 knacs_dma_packet_unmap(knacs_dma_packet *packet)
 {
     struct dma_device *dma_dev = packet->dma_dev;
@@ -98,6 +82,27 @@ knacs_dma_packet_unmap(knacs_dma_packet *packet)
     dma_unmap_single(dma_dev->dev, packet->dma_addrs[num_pages - 1],
                      len, packet->dir);
     packet->dma_dev = NULL;
+}
+
+static void
+knacs_dma_packet_map(knacs_dma_packet *packet, struct dma_chan *chan,
+                     enum dma_data_direction dir)
+{
+    struct dma_device *dma_dev = chan->device;
+    if (unlikely(packet->dma_dev)) {
+        if (packet->dma_dev == dma_dev && packet->dir == dir)
+            return;
+        knacs_dma_packet_unmap(packet);
+    }
+    int num_pages = packet->num_pages;
+    sg_init_table(packet->sgs, num_pages);
+    for (int i = 0;i < num_pages - 1;i++) {
+        knacs_dma_packet_set_sg(packet, i, dma_dev, PAGE_SIZE, dir);
+    }
+    int len = packet->len - (num_pages << PAGE_SHIFT);
+    knacs_dma_packet_set_sg(packet, num_pages, dma_dev, len, dir);
+    packet->dir = dir;
+    packet->dma_dev = dma_dev;
 }
 
 static knacs_dma_packet*
