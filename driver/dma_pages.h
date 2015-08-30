@@ -30,7 +30,7 @@ typedef struct knacs_dma_page {
 
 int knacs_dma_pages_init(void);
 void knacs_dma_pages_exit(void);
-knacs_dma_page *knacs_dma_page_new(void);
+knacs_dma_page *knacs_dma_page_new(int zero_init);
 knacs_dma_page *knacs_dma_page_ref(knacs_dma_page*);
 void knacs_dma_page_unref(knacs_dma_page*);
 

@@ -50,13 +50,15 @@ knacs_dma_page_free(void *_page, void *data)
 }
 
 knacs_dma_page*
-knacs_dma_page_new(void)
+knacs_dma_page_new(int zero_init)
 {
     knacs_dma_page *page = knacs_objpool_alloc(knacs_dma_pages_pool);
     if (IS_ERR(page))
         return page;
     page->dma_addr = 0;
     atomic_set(&page->refcnt, 1);
+    if (zero_init)
+        memset(page->virt_addr, 0, PAGE_SIZE);
     return page;
 }
 

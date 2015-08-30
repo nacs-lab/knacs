@@ -157,7 +157,7 @@ knacs_dma_packet_new(unsigned long len)
     if (IS_ERR(packet))
         return packet;
     for (int i = 0;i < packet->num_pages;i++) {
-        packet->pages[i] = knacs_dma_page_new();
+        packet->pages[i] = knacs_dma_page_new(1);
     }
     return packet;
 }
