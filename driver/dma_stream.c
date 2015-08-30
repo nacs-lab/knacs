@@ -116,16 +116,17 @@ knacs_dma_stream_ioctl(struct file *filp, unsigned int cmd, unsigned long _arg)
         knacs_dma_area *area = vma->vm_private_data;
         knacs_dma_area_ref(area);
 
-        unsigned long start_offset = buff_addr - vma->vm_start;
-        unsigned long end_offset = buff_addr + buff.len - vma->vm_start;
         vm_munmap(vma->vm_start, vma->vm_end - vma->vm_start);
-        int len;
-        knacs_dma_page **pages = knacs_dma_area_get_all_pages(area, &len);
+        int num_pages;
+        knacs_dma_page **pages =
+            knacs_dma_area_get_all_pages(area, &num_pages);
+        if (num_pages * PAGE_SIZE < buff.len) {
+            knacs_dma_area_unref(area);
+            return -EFAULT;
+        }
         int has_hole = 0;
-        for (int i = 0;i < len;i++) {
-            if ((i + 1) * PAGE_SIZE <= start_offset)
-                continue;
-            if (i * PAGE_SIZE >= end_offset)
+        for (int i = 0;i < num_pages;i++) {
+            if (i * PAGE_SIZE >= buff.len)
                 break;
             if (!pages[i]) {
                 has_hole = 1;
@@ -133,9 +134,8 @@ knacs_dma_stream_ioctl(struct file *filp, unsigned int cmd, unsigned long _arg)
             }
         }
         knacs_dma_area_unref(area);
-        if (has_hole) {
+        if (has_hole)
             return -EFAULT;
-        }
         break;
     }
     default:
