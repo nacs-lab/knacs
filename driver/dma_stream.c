@@ -36,7 +36,7 @@ typedef struct {
     unsigned long len;
     int num_pages;
     int finished:1;
-    struct dma_device *dma_dev;
+    struct dma_chan *dma_chan;
     dma_cookie_t cookie;
     enum dma_data_direction dir;
     knacs_dma_page **pages;
@@ -74,9 +74,9 @@ knacs_dma_packet_set_sg(knacs_dma_packet *packet, int i,
 static void
 knacs_dma_packet_unmap(knacs_dma_packet *packet)
 {
-    struct dma_device *dma_dev = packet->dma_dev;
-    if (!dma_dev)
+    if (!packet->dma_chan)
         return;
+    struct dma_device *dma_dev = packet->dma_chan->device;
     int num_pages = packet->num_pages;
     for (int i = 0;i < num_pages;i++) {
         dma_unmap_single(dma_dev->dev, packet->dma_addrs[i],
@@ -85,7 +85,7 @@ knacs_dma_packet_unmap(knacs_dma_packet *packet)
     int len = packet->len - (num_pages << PAGE_SHIFT);
     dma_unmap_single(dma_dev->dev, packet->dma_addrs[num_pages - 1],
                      len, packet->dir);
-    packet->dma_dev = NULL;
+    packet->dma_chan = NULL;
 }
 
 static void
@@ -93,8 +93,8 @@ knacs_dma_packet_map(knacs_dma_packet *packet, struct dma_chan *chan,
                      enum dma_data_direction dir)
 {
     struct dma_device *dma_dev = chan->device;
-    if (unlikely(packet->dma_dev)) {
-        if (packet->dma_dev == dma_dev && packet->dir == dir)
+    if (unlikely(packet->dma_chan)) {
+        if (packet->dma_chan == chan && packet->dir == dir)
             return;
         knacs_dma_packet_unmap(packet);
     }
@@ -106,7 +106,7 @@ knacs_dma_packet_map(knacs_dma_packet *packet, struct dma_chan *chan,
     int len = packet->len - (num_pages << PAGE_SHIFT);
     knacs_dma_packet_set_sg(packet, num_pages, dma_dev, len, dir);
     packet->dir = dir;
-    packet->dma_dev = dma_dev;
+    packet->dma_chan = chan;
 }
 
 static knacs_dma_packet*
