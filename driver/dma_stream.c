@@ -85,7 +85,7 @@ knacs_dma_packet_unmap(knacs_dma_packet *packet)
         dma_unmap_single(dma_dev->dev, packet->dma_addrs[i],
                          PAGE_SIZE, packet->dir);
     }
-    int len = packet->len - (num_pages << PAGE_SHIFT);
+    int len = packet->len - ((num_pages - 1) << PAGE_SHIFT);
     dma_unmap_single(dma_dev->dev, packet->dma_addrs[num_pages - 1],
                      len, packet->dir);
     packet->dma_chan = NULL;
@@ -106,8 +106,8 @@ knacs_dma_packet_map(knacs_dma_packet *packet, struct dma_chan *chan,
     for (int i = 0;i < num_pages - 1;i++) {
         knacs_dma_packet_set_sg(packet, i, dma_dev, PAGE_SIZE, dir);
     }
-    int len = packet->len - (num_pages << PAGE_SHIFT);
-    knacs_dma_packet_set_sg(packet, num_pages, dma_dev, len, dir);
+    int len = packet->len - ((num_pages - 1) << PAGE_SHIFT);
+    knacs_dma_packet_set_sg(packet, num_pages - 1, dma_dev, len, dir);
     packet->dir = dir;
     packet->dma_chan = chan;
 }
@@ -187,8 +187,8 @@ static int
 knacs_dma_stream_queue(knacs_dma_packet *packet, struct list_head *queue)
 {
     struct dma_chan *chan = packet->dma_chan;
-    if (unlikely(chan)) {
-        pr_alert("Cannot transfer unmaped packet.");
+    if (unlikely(!chan)) {
+        pr_alert("Cannot transfer unmaped packet.\n");
         return -EFAULT;
     }
     struct dma_device *dma_dev = chan->device;
@@ -196,8 +196,10 @@ knacs_dma_stream_queue(knacs_dma_packet *packet, struct list_head *queue)
         dma_dev->device_prep_slave_sg(chan, packet->sgs, packet->num_pages,
                                       packet->dir,
                                       DMA_CTRL_ACK | DMA_PREP_INTERRUPT, NULL);
-    if (!desc)
+    if (!desc) {
+        pr_alert("Out of Memory.\n");
         return -ENOMEM;
+    }
     unsigned long irqflags;
 
     spin_lock_irqsave(&knacs_dma_stream_lock, irqflags);
@@ -209,8 +211,10 @@ knacs_dma_stream_queue(knacs_dma_packet *packet, struct list_head *queue)
     desc->callback_param = packet;
     packet->cookie = desc->tx_submit(desc);
     int err = dma_submit_error(packet->cookie);
-    if (err)
+    if (err) {
+        pr_alert("DMA Submit error %d.\n", err);
         return err;
+    }
     dma_async_issue_pending(chan);
     return 0;
 }
@@ -233,13 +237,18 @@ knacs_dma_stream_slave(void *data)
 
         knacs_dma_packet *packet;
         knacs_dma_packet *packet_next;
-        // Not send every packet in our local list, queue them into the written
+        // Now send every packet in our local list, queue them into the written
         // wait list at the same time.
+
+        if (!list_empty(&packet_list))
+            pr_alert("Queueing packets to send\n");
         list_for_each_entry_safe(packet, packet_next, &packet_list, node) {
             if (knacs_dma_stream_queue(packet,
                                        &knacs_dma_stream_written_wait)) {
                 pr_alert("Error sending packet\n");
                 knacs_dma_packet_free(packet);
+            } else {
+                pr_alert("Packet sent %p\n", packet);
             }
         }
 
@@ -257,8 +266,11 @@ knacs_dma_stream_slave(void *data)
         }
         spin_unlock_irqrestore(&knacs_dma_stream_lock, irqflags);
 
+        if (!list_empty(&packet_list))
+            pr_alert("Freeing sent packets\n");
         // Free the packets in the local list without holding the lock
         list_for_each_entry_safe(packet, packet_next, &packet_list, node) {
+            pr_alert("Packet sent done %p\n", packet);
             knacs_dma_packet_free(packet);
         }
 
@@ -281,27 +293,37 @@ knacs_dma_stream_slave(void *data)
         }
         spin_unlock_irqrestore(&knacs_dma_stream_lock, irqflags);
 
+        if (!list_empty(&packet_list))
+            pr_alert("Unmapping filled packets\n");
         // Unmap the packets that are filled
         list_for_each_entry(packet, &packet_list, node) {
+            pr_alert("Packet filled %p\n", packet);
             knacs_dma_packet_unmap(packet);
         }
 
         // Queue the filled packets in the read_wait list
         spin_lock_irqsave(&knacs_dma_stream_lock, irqflags);
         list_for_each_entry_safe(packet, packet_next, &packet_list, node) {
-            if (packet->finished) {
-                list_add_tail(&packet->node, &knacs_dma_stream_read_wait);
-            }
+            list_add_tail(&packet->node, &knacs_dma_stream_read_wait);
         }
         spin_unlock_irqrestore(&knacs_dma_stream_lock, irqflags);
 
+        pr_alert("Allocating packets to read\n");
         // If there's not enough (8) packets queued for reading, fill the gap.
         for (int i = 0;i < 8 - to_read_left;i++) {
-            packet = knacs_dma_packet_new(2);
+            pr_alert("Allocating packet %d\n", i);
+            packet = knacs_dma_packet_new(PAGE_SIZE);
+            if (IS_ERR(packet)) {
+                pr_alert("Could not allocate read buffer\n");
+                continue;
+            }
             knacs_dma_packet_map(packet, knacs_dma_stream_rx, DMA_DEV_TO_MEM);
+            INIT_LIST_HEAD(&packet->node);
             if (knacs_dma_stream_queue(packet, &knacs_dma_stream_to_read)) {
                 pr_alert("Error queueing read buffer\n");
                 knacs_dma_packet_free(packet);
+            } else {
+                pr_alert("Packet queued for read %p\n", packet);
             }
         }
 
@@ -456,6 +478,7 @@ knacs_dma_stream_probe(struct platform_device *pdev)
         goto free_thread;
     }
 
+    knacs_dma_stream_notify_slave();
     /* srcbuf and dstbuf are allocated by the thread itself */
     get_task_struct(knacs_slave_thread);
 
