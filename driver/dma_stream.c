@@ -218,7 +218,8 @@ knacs_dma_stream_slave(void *data)
         spin_unlock_irqrestore(&knacs_dma_stream_lock, irqflags);
 
         knacs_dma_packet *packet;
-        list_for_each_entry(packet, &packet_list, node) {
+        knacs_dma_packet *packet_next;
+        list_for_each_entry_safe(packet, packet_next, &packet_list, node) {
             if (knacs_dma_stream_queue_tx(packet)) {
                 pr_alert("Error sending packet\n");
                 knacs_dma_packet_free(packet);
@@ -226,7 +227,6 @@ knacs_dma_stream_slave(void *data)
         }
 
         INIT_LIST_HEAD(&packet_list);
-        knacs_dma_packet *packet_next;
 
         spin_lock_irqsave(&knacs_dma_stream_lock, irqflags);
         list_for_each_entry_safe(packet, packet_next,
@@ -237,7 +237,7 @@ knacs_dma_stream_slave(void *data)
             }
         }
         spin_unlock_irqrestore(&knacs_dma_stream_lock, irqflags);
-        list_for_each_entry(packet, &packet_list, node) {
+        list_for_each_entry_safe(packet, packet_next, &packet_list, node) {
             knacs_dma_packet_free(packet);
         }
     }
