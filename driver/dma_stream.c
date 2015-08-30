@@ -48,6 +48,9 @@ static DEFINE_SPINLOCK(knacs_dma_stream_lock);
 static LIST_HEAD(knacs_dma_stream_to_write);
 static LIST_HEAD(knacs_dma_stream_written_wait);
 
+static LIST_HEAD(knacs_dma_stream_to_read);
+static LIST_HEAD(knacs_dma_stream_read_wait);
+
 static struct dma_chan *knacs_dma_stream_tx = NULL;
 static struct dma_chan *knacs_dma_stream_rx = NULL;
 static struct task_struct *knacs_slave_thread = NULL;
@@ -170,37 +173,45 @@ knacs_dma_packet_free(knacs_dma_packet *packet)
 }
 
 static void
-knacs_dma_stream_tx_callback(void *_packet)
+knacs_dma_stream_callback(void *_packet)
 {
     knacs_dma_packet *packet = _packet;
+    unsigned long irqflags;
+    spin_lock_irqsave(&knacs_dma_stream_lock, irqflags);
     packet->finished = 1;
+    spin_unlock_irqrestore(&knacs_dma_stream_lock, irqflags);
     knacs_dma_stream_notify_slave();
 }
 
 static int
-knacs_dma_stream_queue_tx(knacs_dma_packet *packet)
+knacs_dma_stream_queue(knacs_dma_packet *packet, struct list_head *queue)
 {
-    struct dma_device *tx_dev = knacs_dma_stream_tx->device;
-    struct dma_async_tx_descriptor *txd =
-        tx_dev->device_prep_slave_sg(knacs_dma_stream_tx, packet->sgs,
-                                     packet->num_pages, DMA_MEM_TO_DEV,
-                                     DMA_CTRL_ACK | DMA_PREP_INTERRUPT, NULL);
-    if (!txd)
+    struct dma_chan *chan = packet->dma_chan;
+    if (unlikely(chan)) {
+        pr_alert("Cannot transfer unmaped packet.");
+        return -EFAULT;
+    }
+    struct dma_device *dma_dev = chan->device;
+    struct dma_async_tx_descriptor *desc =
+        dma_dev->device_prep_slave_sg(chan, packet->sgs, packet->num_pages,
+                                      packet->dir,
+                                      DMA_CTRL_ACK | DMA_PREP_INTERRUPT, NULL);
+    if (!desc)
         return -ENOMEM;
     unsigned long irqflags;
 
     spin_lock_irqsave(&knacs_dma_stream_lock, irqflags);
     list_del(&packet->node);
-    list_add_tail(&packet->node, &knacs_dma_stream_written_wait);
+    list_add_tail(&packet->node, queue);
     spin_unlock_irqrestore(&knacs_dma_stream_lock, irqflags);
 
-    txd->callback = knacs_dma_stream_tx_callback;
-    txd->callback_param = packet;
-    packet->cookie = txd->tx_submit(txd);
+    desc->callback = knacs_dma_stream_callback;
+    desc->callback_param = packet;
+    packet->cookie = desc->tx_submit(desc);
     int err = dma_submit_error(packet->cookie);
     if (err)
         return err;
-    dma_async_issue_pending(knacs_dma_stream_tx);
+    dma_async_issue_pending(chan);
     return 0;
 }
 
@@ -213,14 +224,20 @@ knacs_dma_stream_slave(void *data)
 
         unsigned long irqflags;
 
+        /* Writing */
+
+        // For to_write list, transfer it into our local list first
         spin_lock_irqsave(&knacs_dma_stream_lock, irqflags);
         list_splice_tail_init(&knacs_dma_stream_to_write, &packet_list);
         spin_unlock_irqrestore(&knacs_dma_stream_lock, irqflags);
 
         knacs_dma_packet *packet;
         knacs_dma_packet *packet_next;
+        // Not send every packet in our local list, queue them into the written
+        // wait list at the same time.
         list_for_each_entry_safe(packet, packet_next, &packet_list, node) {
-            if (knacs_dma_stream_queue_tx(packet)) {
+            if (knacs_dma_stream_queue(packet,
+                                       &knacs_dma_stream_written_wait)) {
                 pr_alert("Error sending packet\n");
                 knacs_dma_packet_free(packet);
             }
@@ -228,6 +245,8 @@ knacs_dma_stream_slave(void *data)
 
         INIT_LIST_HEAD(&packet_list);
 
+        // For each packet in the written_wait list, transfer the ones that
+        // are done into our local list.
         spin_lock_irqsave(&knacs_dma_stream_lock, irqflags);
         list_for_each_entry_safe(packet, packet_next,
                                  &knacs_dma_stream_written_wait, node) {
@@ -237,9 +256,57 @@ knacs_dma_stream_slave(void *data)
             }
         }
         spin_unlock_irqrestore(&knacs_dma_stream_lock, irqflags);
+
+        // Free the packets in the local list without holding the lock
         list_for_each_entry_safe(packet, packet_next, &packet_list, node) {
             knacs_dma_packet_free(packet);
         }
+
+        /* Reading */
+
+        INIT_LIST_HEAD(&packet_list);
+        int to_read_left = 0;
+
+        // For each packet in the to_read list, move the finished one into
+        // our local list, count empty packets at the same time.
+        spin_lock_irqsave(&knacs_dma_stream_lock, irqflags);
+        list_for_each_entry_safe(packet, packet_next,
+                                 &knacs_dma_stream_to_read, node) {
+            if (packet->finished) {
+                list_del(&packet->node);
+                list_add_tail(&packet->node, &packet_list);
+            } else {
+                to_read_left++;
+            }
+        }
+        spin_unlock_irqrestore(&knacs_dma_stream_lock, irqflags);
+
+        // Unmap the packets that are filled
+        list_for_each_entry(packet, &packet_list, node) {
+            knacs_dma_packet_unmap(packet);
+        }
+
+        // Queue the filled packets in the read_wait list
+        spin_lock_irqsave(&knacs_dma_stream_lock, irqflags);
+        list_for_each_entry_safe(packet, packet_next, &packet_list, node) {
+            if (packet->finished) {
+                list_add_tail(&packet->node, &knacs_dma_stream_read_wait);
+            }
+        }
+        spin_unlock_irqrestore(&knacs_dma_stream_lock, irqflags);
+
+        // If there's not enough (8) packets queued for reading, fill the gap.
+        for (int i = 0;i < 8 - to_read_left;i++) {
+            packet = knacs_dma_packet_new(2);
+            knacs_dma_packet_map(packet, knacs_dma_stream_rx, DMA_DEV_TO_MEM);
+            if (knacs_dma_stream_queue(packet, &knacs_dma_stream_to_read)) {
+                pr_alert("Error queueing read buffer\n");
+                knacs_dma_packet_free(packet);
+            }
+        }
+
+        /* status = dma_async_is_tx_complete(tx_chan, tx_cookie, */
+        /*                                   NULL, NULL); */
     }
     return 0;
 }
