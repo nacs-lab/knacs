@@ -27,8 +27,18 @@
 #include <linux/amba/xilinx_dma.h>
 #include <linux/kthread.h>
 #include <linux/delay.h>
+#include <linux/slab.h>
 #include <linux/platform_device.h>
 #include <asm/uaccess.h>
+
+typedef struct {
+    struct list_head node;
+    unsigned long len;
+    int num_pages;
+    knacs_dma_page **pages;
+    dma_addr_t *dma_addrs;
+    struct scatterlist *sgs;
+} knacs_dma_packet;
 
 static struct dma_chan *knacs_dma_stream_tx = NULL;
 static struct dma_chan *knacs_dma_stream_rx = NULL;
@@ -39,6 +49,76 @@ static void
 knacs_dma_stream_notify_slave(void)
 {
     complete(&knacs_dma_slave_cmp);
+}
+
+static void
+knacs_dma_packet_map_sg_tx(knacs_dma_packet *packet)
+{
+    int num_pages = packet->num_pages;
+    struct dma_device *dma_dev = knacs_dma_stream_tx->device;
+    sg_init_table(packet->sgs, num_pages);
+    for (int i = 0;i < num_pages;i++) {
+        int len = (i == num_pages - 1 ?
+                   packet->len - (num_pages << PAGE_SHIFT) :
+                   PAGE_SIZE);
+        packet->dma_addrs[i] = dma_map_single(dma_dev->dev,
+                                              packet->pages[i]->virt_addr, len,
+                                              DMA_MEM_TO_DEV);
+        sg_dma_address(&packet->sgs[i]) = packet->dma_addrs[i];
+        sg_dma_len(&packet->sgs[i]) = len;
+    }
+}
+
+static void
+knacs_dma_packet_unmap_tx(knacs_dma_packet *packet)
+{
+    int num_pages = packet->num_pages;
+    struct dma_device *dma_dev = knacs_dma_stream_tx->device;
+    for (int i = 0;i < num_pages;i++) {
+        int len = (i == num_pages - 1 ?
+                   packet->len - (num_pages << PAGE_SHIFT) :
+                   PAGE_SIZE);
+        dma_unmap_single(dma_dev->dev, packet->dma_addrs[i], len,
+                         DMA_MEM_TO_DEV);
+    }
+}
+
+static knacs_dma_packet*
+knacs_dma_packet_new_from_area(knacs_dma_area *area, unsigned long len)
+{
+    int num_pages = (len + PAGE_SIZE - 1) >> PAGE_SHIFT;
+    size_t total_size = (sizeof(knacs_dma_packet) +
+                         num_pages * (sizeof(knacs_dma_page*) +
+                                      sizeof(dma_addr_t) +
+                                      sizeof(struct scatterlist)));
+    knacs_dma_packet *packet = kzalloc(total_size, GFP_KERNEL);
+    if (!packet)
+        return ERR_PTR(-ENOMEM);
+    char *endof_struct = ((char*)packet) + sizeof(knacs_dma_packet);
+    packet->len = len;
+    packet->num_pages = num_pages;
+    packet->pages = (knacs_dma_page**)endof_struct;
+    packet->dma_addrs = (dma_addr_t*)(endof_struct +
+                                      sizeof(knacs_dma_page*) * num_pages);
+    packet->sgs = (struct scatterlist*)(endof_struct +
+                                        (sizeof(knacs_dma_page*) +
+                                         sizeof(dma_addr_t)) * num_pages);
+    int num_page_area;
+    knacs_dma_page **pages =
+        knacs_dma_area_get_all_pages(area, &num_page_area);
+    for (int i = 0;i < num_pages;i++) {
+        packet->pages[i] = knacs_dma_page_ref(pages[i]);
+    }
+    return packet;
+}
+
+static void
+knacs_dma_packet_free(knacs_dma_packet *packet)
+{
+    for (int i = 0;i < packet->num_pages;i++) {
+        knacs_dma_page_unref(packet->pages[i]);
+    }
+    kfree(packet);
 }
 
 static int
@@ -124,18 +204,21 @@ knacs_dma_stream_ioctl(struct file *filp, unsigned int cmd, unsigned long _arg)
             knacs_dma_area_unref(area);
             return -EFAULT;
         }
-        int has_hole = 0;
         for (int i = 0;i < num_pages;i++) {
             if (i * PAGE_SIZE >= buff.len)
                 break;
             if (!pages[i]) {
-                has_hole = 1;
-                break;
+                knacs_dma_area_unref(area);
+                return -EFAULT;
             }
         }
+        knacs_dma_packet *packet =
+            knacs_dma_packet_new_from_area(area, buff.len);
         knacs_dma_area_unref(area);
-        if (has_hole)
-            return -EFAULT;
+        knacs_dma_packet_map_sg_tx(packet);
+        // temporary
+        knacs_dma_packet_unmap_tx(packet);
+        knacs_dma_packet_free(packet);
         break;
     }
     default:
