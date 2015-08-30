@@ -23,11 +23,11 @@
 #include "dma_pages.h"
 
 #include <linux/slab.h>
-#include <linux/semaphore.h>
+#include <linux/mutex.h>
 
 struct knacs_dma_area {
     atomic_t refcnt;
-    struct semaphore mutex; // for changing ::pages
+    struct mutex lock; // for changing ::pages
     int nalloc;
     int num_page;
     knacs_dma_page **pages;
@@ -40,7 +40,7 @@ knacs_dma_area_new(void)
     if (!area)
         return ERR_PTR(-ENOMEM);
     atomic_set(&area->refcnt, 1);
-    sema_init(&area->mutex, 1);
+    mutex_init(&area->lock);
     return area;
 }
 
@@ -114,23 +114,23 @@ _knacs_dma_area_get_page(knacs_dma_area *area, int idx, int zero_init)
 knacs_dma_page*
 knacs_dma_area_get_page(knacs_dma_area *area, int idx, int zero_init)
 {
-    if (down_interruptible(&area->mutex))
+    if (mutex_lock_interruptible(&area->lock))
         return ERR_PTR(-ERESTARTSYS);
     knacs_dma_page *page = _knacs_dma_area_get_page(area, idx, zero_init);
-    up(&area->mutex);
+    mutex_unlock(&area->lock);
     return page;
 }
 
 void
 knacs_dma_area_lock(knacs_dma_area *area)
 {
-    down(&area->mutex);
+    mutex_lock(&area->lock);
 }
 
 void
 knacs_dma_area_unlock(knacs_dma_area *area)
 {
-    up(&area->mutex);
+    mutex_unlock(&area->lock);
 }
 
 knacs_dma_page**
