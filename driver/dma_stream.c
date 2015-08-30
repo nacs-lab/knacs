@@ -110,7 +110,7 @@ knacs_dma_packet_map(knacs_dma_packet *packet, struct dma_chan *chan,
 }
 
 static knacs_dma_packet*
-knacs_dma_packet_new_from_area(knacs_dma_area *area, unsigned long len)
+knacs_dma_packet_new_empty(unsigned long len)
 {
     int num_pages = (len + PAGE_SIZE - 1) >> PAGE_SHIFT;
     size_t total_size = (sizeof(knacs_dma_packet) +
@@ -129,11 +129,32 @@ knacs_dma_packet_new_from_area(knacs_dma_area *area, unsigned long len)
     packet->sgs = (struct scatterlist*)(endof_struct +
                                         (sizeof(knacs_dma_page*) +
                                          sizeof(dma_addr_t)) * num_pages);
+    return packet;
+}
+
+static knacs_dma_packet*
+knacs_dma_packet_new_from_area(knacs_dma_area *area, unsigned long len)
+{
+    knacs_dma_packet *packet = knacs_dma_packet_new_empty(len);
+    if (IS_ERR(packet))
+        return packet;
     int num_page_area;
     knacs_dma_page **pages =
         knacs_dma_area_get_all_pages(area, &num_page_area);
-    for (int i = 0;i < num_pages;i++) {
+    for (int i = 0;i < packet->num_pages;i++) {
         packet->pages[i] = knacs_dma_page_ref(pages[i]);
+    }
+    return packet;
+}
+
+static knacs_dma_packet*
+knacs_dma_packet_new(unsigned long len)
+{
+    knacs_dma_packet *packet = knacs_dma_packet_new_empty(len);
+    if (IS_ERR(packet))
+        return packet;
+    for (int i = 0;i < packet->num_pages;i++) {
+        packet->pages[i] = knacs_dma_page_new();
     }
     return packet;
 }
