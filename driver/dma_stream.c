@@ -35,6 +35,10 @@ typedef struct {
     struct list_head node;
     unsigned long len;
     int num_pages;
+    int finished:1;
+    struct dma_device *dma_dev;
+    dma_cookie_t cookie;
+    enum dma_data_direction dir;
     knacs_dma_page **pages;
     dma_addr_t *dma_addrs;
     struct scatterlist *sgs;
@@ -52,35 +56,48 @@ knacs_dma_stream_notify_slave(void)
 }
 
 static void
-knacs_dma_packet_map_tx(knacs_dma_packet *packet)
+knacs_dma_packet_set_sg(knacs_dma_packet *packet, int i,
+                        struct dma_device *dma_dev,
+                        int len, enum dma_data_direction dir)
 {
-    int num_pages = packet->num_pages;
-    struct dma_device *dma_dev = knacs_dma_stream_tx->device;
-    sg_init_table(packet->sgs, num_pages);
-    for (int i = 0;i < num_pages;i++) {
-        int len = (i == num_pages - 1 ?
-                   packet->len - (num_pages << PAGE_SHIFT) :
-                   PAGE_SIZE);
-        packet->dma_addrs[i] = dma_map_single(dma_dev->dev,
-                                              packet->pages[i]->virt_addr, len,
-                                              DMA_MEM_TO_DEV);
-        sg_dma_address(&packet->sgs[i]) = packet->dma_addrs[i];
-        sg_dma_len(&packet->sgs[i]) = len;
-    }
+    dma_addr_t addr = dma_map_single(dma_dev->dev,
+                                     packet->pages[i]->virt_addr, len, dir);
+    packet->dma_addrs[i] = addr;
+    sg_dma_address(&packet->sgs[i]) = addr;
+    sg_dma_len(&packet->sgs[i]) = len;
 }
 
 static void
-knacs_dma_packet_unmap_tx(knacs_dma_packet *packet)
+knacs_dma_packet_map(knacs_dma_packet *packet, struct dma_chan *chan,
+                     enum dma_data_direction dir)
 {
     int num_pages = packet->num_pages;
-    struct dma_device *dma_dev = knacs_dma_stream_tx->device;
-    for (int i = 0;i < num_pages;i++) {
-        int len = (i == num_pages - 1 ?
-                   packet->len - (num_pages << PAGE_SHIFT) :
-                   PAGE_SIZE);
-        dma_unmap_single(dma_dev->dev, packet->dma_addrs[i], len,
-                         DMA_MEM_TO_DEV);
+    struct dma_device *dma_dev = chan->device;
+    sg_init_table(packet->sgs, num_pages);
+    for (int i = 0;i < num_pages - 1;i++) {
+        knacs_dma_packet_set_sg(packet, i, dma_dev, PAGE_SIZE, dir);
     }
+    int len = packet->len - (num_pages << PAGE_SHIFT);
+    knacs_dma_packet_set_sg(packet, num_pages, dma_dev, len, dir);
+    packet->dir = dir;
+    packet->dma_dev = dma_dev;
+}
+
+static void
+knacs_dma_packet_unmap(knacs_dma_packet *packet)
+{
+    struct dma_device *dma_dev = packet->dma_dev;
+    if (!dma_dev)
+        return;
+    int num_pages = packet->num_pages;
+    for (int i = 0;i < num_pages;i++) {
+        dma_unmap_single(dma_dev->dev, packet->dma_addrs[i],
+                         PAGE_SIZE, packet->dir);
+    }
+    int len = packet->len - (num_pages << PAGE_SHIFT);
+    dma_unmap_single(dma_dev->dev, packet->dma_addrs[num_pages - 1],
+                     len, packet->dir);
+    packet->dma_dev = NULL;
 }
 
 static knacs_dma_packet*
@@ -115,6 +132,7 @@ knacs_dma_packet_new_from_area(knacs_dma_area *area, unsigned long len)
 static void
 knacs_dma_packet_free(knacs_dma_packet *packet)
 {
+    knacs_dma_packet_unmap(packet);
     for (int i = 0;i < packet->num_pages;i++) {
         knacs_dma_page_unref(packet->pages[i]);
     }
@@ -218,9 +236,8 @@ knacs_dma_stream_ioctl(struct file *filp, unsigned int cmd, unsigned long _arg)
         knacs_dma_area_unref(area);
         if (IS_ERR(packet))
             return PTR_ERR(packet);
-        knacs_dma_packet_map_tx(packet);
+        knacs_dma_packet_map(packet, knacs_dma_stream_tx, DMA_MEM_TO_DEV);
         // temporary
-        knacs_dma_packet_unmap_tx(packet);
         knacs_dma_packet_free(packet);
         break;
     }
