@@ -240,15 +240,13 @@ knacs_dma_stream_slave(void *data)
         // Now send every packet in our local list, queue them into the written
         // wait list at the same time.
 
-        if (!list_empty(&packet_list))
-            pr_alert("Queueing packets to send\n");
         list_for_each_entry_safe(packet, packet_next, &packet_list, node) {
             if (knacs_dma_stream_queue(packet,
                                        &knacs_dma_stream_written_wait)) {
                 pr_alert("Error sending packet\n");
                 knacs_dma_packet_free(packet);
             } else {
-                pr_alert("Packet sent %p\n", packet);
+                pr_info("Packet sent %p\n", packet);
             }
         }
 
@@ -266,11 +264,9 @@ knacs_dma_stream_slave(void *data)
         }
         spin_unlock_irqrestore(&knacs_dma_stream_lock, irqflags);
 
-        if (!list_empty(&packet_list))
-            pr_alert("Freeing sent packets\n");
         // Free the packets in the local list without holding the lock
         list_for_each_entry_safe(packet, packet_next, &packet_list, node) {
-            pr_alert("Packet sent done %p\n", packet);
+            pr_info("Packet sent done %p\n", packet);
             knacs_dma_packet_free(packet);
         }
 
@@ -293,11 +289,9 @@ knacs_dma_stream_slave(void *data)
         }
         spin_unlock_irqrestore(&knacs_dma_stream_lock, irqflags);
 
-        if (!list_empty(&packet_list))
-            pr_alert("Unmapping filled packets\n");
         // Unmap the packets that are filled
         list_for_each_entry(packet, &packet_list, node) {
-            pr_alert("Packet filled %p\n", packet);
+            pr_info("Packet filled %p\n", packet);
             knacs_dma_packet_unmap(packet);
         }
 
@@ -308,11 +302,10 @@ knacs_dma_stream_slave(void *data)
         }
         spin_unlock_irqrestore(&knacs_dma_stream_lock, irqflags);
 
-        pr_alert("Allocating packets to read\n");
         // If there's not enough (8) packets queued for reading, fill the gap.
         for (int i = 0;i < 8 - to_read_left;i++) {
-            pr_alert("Allocating packet %d\n", i);
-            packet = knacs_dma_packet_new(PAGE_SIZE);
+            pr_info("Allocating packet %d\n", i);
+            packet = knacs_dma_packet_new(PAGE_SIZE * 8);
             if (IS_ERR(packet)) {
                 pr_alert("Could not allocate read buffer\n");
                 continue;
@@ -323,8 +316,20 @@ knacs_dma_stream_slave(void *data)
                 pr_alert("Error queueing read buffer\n");
                 knacs_dma_packet_free(packet);
             } else {
-                pr_alert("Packet queued for read %p\n", packet);
+                pr_info("Packet queued for read %p\n", packet);
             }
+        }
+
+        INIT_LIST_HEAD(&packet_list);
+        spin_lock_irqsave(&knacs_dma_stream_lock, irqflags);
+        list_splice_tail_init(&knacs_dma_stream_read_wait, &packet_list);
+        spin_unlock_irqrestore(&knacs_dma_stream_lock, irqflags);
+
+        // Free the read_wait packages to avoid oom when testing since
+        // we don't have a way to get these buffers yet
+        list_for_each_entry_safe(packet, packet_next, &packet_list, node) {
+            pr_info("Packet sent done %p\n", packet);
+            knacs_dma_packet_free(packet);
         }
 
         /* status = dma_async_is_tx_complete(tx_chan, tx_cookie, */
