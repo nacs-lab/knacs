@@ -24,11 +24,11 @@
 #include "dma_area.h"
 #include "knacs.h"
 
-#include <linux/amba/xilinx_dma.h>
 #include <linux/kthread.h>
 #include <linux/delay.h>
 #include <linux/slab.h>
 #include <linux/platform_device.h>
+#include <linux/dma-mapping.h>
 #include <asm/uaccess.h>
 
 typedef struct {
@@ -449,7 +449,6 @@ knacs_dma_stream_probe(struct platform_device *pdev)
     }
 
     int err;
-    struct xilinx_dma_config config;
 
     knacs_dma_stream_tx = dma_request_slave_channel(&pdev->dev, "axidma0");
     if (IS_ERR(knacs_dma_stream_tx)) {
@@ -457,10 +456,6 @@ knacs_dma_stream_probe(struct platform_device *pdev)
         pr_alert("Requesting Tx channel failed\n");
         goto clear_tx;
     }
-    /* Only one interrupt */
-    config.coalesc = 1;
-    config.delay = 0;
-    xilinx_dma_channel_set_config(knacs_dma_stream_tx, &config);
 
     knacs_dma_stream_rx = dma_request_slave_channel(&pdev->dev, "axidma1");
     if (IS_ERR(knacs_dma_stream_rx)) {
@@ -468,10 +463,6 @@ knacs_dma_stream_probe(struct platform_device *pdev)
         pr_alert("Requesting Rx channel failed\n");
         goto free_tx;
     }
-    /* Only one interrupt */
-    config.coalesc = 1;
-    config.delay = 0;
-    xilinx_dma_channel_set_config(knacs_dma_stream_rx, &config);
 
     knacs_slave_thread = kthread_run(knacs_dma_stream_slave, NULL,
                                      "knacs-%s-%s",
