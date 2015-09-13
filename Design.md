@@ -64,3 +64,44 @@ of using the Xilinx driver.
     invalidate the user space mapping of the DMA buffer so that the user won't
     fight with the DMA hardware. The user process should allocate another
     buffer if more transfers are needed.
+
+* Read (from FPGA)
+
+    The driver should keep a DMA buffer ready to be filled by the DMA hardware.
+    The hardware will notify (with interupt) the driver if the buffer is filled
+    or if the transfer is paused for other reasons and the driver should
+    prepare new buffers to be filled by the hardware.
+
+    When a userspace process try to read the buffer (likely using `ioctl`), the
+    driver should map/copy the content that has been transferred to the
+    userspace along with the length of the content and possibly indicating
+    the package boundary (need to check hardware capability). If there isn't
+    any finished transfer yet, it might be necessary to pause the current
+    temporarily and return the content of the partial transfer (also need to
+    check hardware capability).
+
+## Implementation
+
+* DMA buffer management
+
+    The driver should allocate memory in the unit of pages. It should also keep
+    a pool of free pages in order to speed up rapid free/allocation. We could
+    also try to allocate some higher order pages (two continious physical
+    pages) in order to minimize the use of scatter-gather list.
+
+* Scatter-Gather (SG) list management
+
+    Following the design of the Xilinx driver, the SG list should use DMA
+    coherent memory (so that we don't need to explicitly map/unmap them).
+    The SG list items all have the same size and doesn't need to be continious
+    so we can use a memory pool and a free list to manage them.
+
+    Due to the limit amount of DMA coherent memory, we should delay the
+    creation of the SG list as much as possible. The allocation from the
+    free list shouldn't be very expensive (and should be non-blocking) so we
+    should create the SG list only for the buffer to be transferred and maybe
+    the one that will be transferred (for both read and write).
+
+* Write
+
+* Read
