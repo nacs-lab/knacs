@@ -104,4 +104,34 @@ of using the Xilinx driver.
 
 * Write
 
+    When the user space initiate a write, the driver should ummap the pages
+    from the user process and start sending the list of pages to the hardware.
+    The transfer should start immediately if there's no on-going transfer and
+    should be pushed to a to-write queue otherwise.
+
+    When the write is done, the driver should recieve an interupt from the
+    hardware. The driver should check the finishing status and prepare the
+    next transfer in the queue. Optionally (see above) the driver should also
+    prepare to notify the user process that the transfer is done.
+
 * Read
+
+    The implementation of the read strongly depend on the behavior of the DMA
+    engine when it reaches the end of a descriptor chain. Unfortunately, I
+    couldn't find a very good document on this behavior either for the SG mode
+    or for the cyclic mode. It is necessary to know this behavior in order to
+    support receiving packages of unknown length. The length of the package
+    should be determined by the application instead of the kernel driver. If
+    it is impossible to relably pause a transfer on buffer overflow and restart
+    it after new buffers are prepared, the backup plan is to require the user
+    space process to initialize a transfer with known size limit. However, in
+    this case we still need a way to generate an error gracefully if the
+    package size is longer than the limit provided by the user space.
+
+    We also need to decide how to transfer this data to the userspace. If the
+    recieving is also initialized by the userspace. We might be able to simply
+    fill the user provided/allocated buffers. The more userspace friendly way
+    is to allocate the DMA buffer purely in the kernel. Then we can either
+    copy the data to a user provided buffer or `mmap` the recieved pages into
+    the user space. (We could also provide both and benchmark them/use
+    different one in different conditions).
