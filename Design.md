@@ -194,7 +194,8 @@ of using the Xilinx driver.
     necessary to use the generic DMA layer for data transfer. We might still
     want to user certain pieces from the generic DMA layer for certain things:
 
-    * Mapping to hardware address (`dma_addr_t`).
+    * Mapping to hardware address (`dma_addr_t`) and allocate coherent memory
+      `dma_alloc_coherent`
 
         We might be able to use other kernel function to get the hardware
         address directly.
