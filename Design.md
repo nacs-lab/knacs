@@ -135,3 +135,73 @@ of using the Xilinx driver.
     copy the data to a user provided buffer or `mmap` the recieved pages into
     the user space. (We could also provide both and benchmark them/use
     different one in different conditions).
+
+* Objects and lifetime
+
+    * `knacs_dma_page`
+
+        Cache a few free pages in a list for fast allocation
+
+        The pages will be inserted in an `knacs_dma_block` that will be
+        either mapped to the userspace or queued for DMA transfer.
+
+        ```c
+        typedef struct {
+            struct rb_node node; // For chaining into a block
+            knacs_dma_sg_desc *sg; // Pointer to the SG descriptor (may be NULL)
+            u32 flags; // flags (may not be necessary)
+            u32 idx; // page index in the block
+            void *data; // actually page data (virtual address)
+            dma_addr_t dma_addr; // dma (physical) address
+        } knacs_dma_page;
+        ```
+
+    * `knacs_dma_block`
+
+        This is the representation of a DMA buffer, which can be
+
+        1. mapped to userspace
+
+        2. Queue'd to be sent (mapped to hardware)
+
+        3. Queue'd to be recieved (mapped to hardware)
+
+        We may need reference counting in order to handle `unmap` from
+        userspace. (Since this is what the kernel API looks like.)
+
+        ```c
+        typedef struct {
+            struct list_head node; // For chaining into a queue
+            struct rb_root *pages; // List of pages
+            u32 flags; // flags (may not be necessary)
+            atomic_t refcnt;
+            // Might add other field to cache certain results
+        } knacs_dma_page;
+        ```
+
+    * `knacs_dma_sg_desc`
+
+        This is the SG descriptor for the AXI DMA engine. It needs to be
+        allocated as coherent memory as mentioned above. We'll have a
+        pool of coherent memory chained by a free list and allocate
+        all the descriptors from there. A SG descriptor is only assigned
+        to a page if it is about to be transferred since the coherent
+        memory is very limitted.
+
+* Relation to the generic DMA engine layer
+
+    Since we are going to interface with the hardware directly, it is not
+    necessary to use the generic DMA layer for data transfer. We might still
+    want to user certain pieces from the generic DMA layer for certain things:
+
+    * Mapping to hardware address (`dma_addr_t`).
+
+        We might be able to use other kernel function to get the hardware
+        address directly.
+
+    * Acquisition of the DMA channels.
+
+        The device appears as DMA channels in the device tree but it should be
+        easy to change that and use the AXI DMA control register simply as any
+        other memory mapped devices if we want to by-pass the generic DMA
+        layer.
