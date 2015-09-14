@@ -33,7 +33,7 @@ knacs_page_alloc(void *data)
     void *addr = (void*)__get_free_page(GFP_KERNEL | __GFP_DMA);
     if (!addr)
         return NULL;
-    knacs_page *page = kzalloc(sizeof(knacs_page), GFP_KERNEL);
+    knacs_page *page = kmalloc(sizeof(knacs_page), GFP_KERNEL);
     if (!page) {
         free_page((unsigned long)addr);
         return NULL;
