@@ -97,13 +97,11 @@ static int __init knacs_init(void)
         goto dev_create_fail;
     }
 
-    if ((err = platform_driver_register(&knacs_pulse_ctl_driver))) {
-        pr_alert("Failed to register pulse controller driver\n");
-        goto pulse_ctl_reg_fail;
-    }
+    if ((err = knacs_pulse_ctl_init()))
+        goto pulse_ctl_init_fail;
     return 0;
 
-pulse_ctl_reg_fail:
+pulse_ctl_init_fail:
     device_destroy(nacsClass, MKDEV(majorNumber, 0)); // remove the device
 dev_create_fail:
     class_destroy(nacsClass);
@@ -115,7 +113,7 @@ reg_dev_fail:
 
 static void __exit knacs_exit(void)
 {
-    platform_driver_unregister(&knacs_pulse_ctl_driver);
+    knacs_pulse_ctl_exit();
     device_destroy(nacsClass, MKDEV(majorNumber, 0)); // remove the device
     class_unregister(nacsClass); // unregister the device class
     class_destroy(nacsClass); // remove the device class
@@ -174,7 +172,7 @@ knacs_dev_mmap(struct file *filp, struct vm_area_struct *vma)
 {
     // The first page is the pulse controller registers
     if (vma->vm_pgoff == 0)
-        return knacs_dev_mmap_pulse_ctl(filp, vma);
+        return knacs_pulse_ctl_mmap(filp, vma);
     pr_alert("Mapping unknown pages.\n");
     return -EINVAL;
 }

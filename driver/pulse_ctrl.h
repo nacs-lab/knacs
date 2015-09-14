@@ -23,7 +23,8 @@
 #include <linux/mm.h>
 #include <linux/platform_device.h>
 
-extern struct platform_driver knacs_pulse_ctl_driver;
-int knacs_dev_mmap_pulse_ctl(struct file*, struct vm_area_struct*);
+int knacs_pulse_ctl_init(void);
+void knacs_pulse_ctl_exit(void);
+int knacs_pulse_ctl_mmap(struct file*, struct vm_area_struct*);
 
 #endif

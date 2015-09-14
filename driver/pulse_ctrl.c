@@ -57,7 +57,7 @@ static int knacs_pulse_ctl_remove(struct platform_device *pdev)
 }
 
 int
-knacs_dev_mmap_pulse_ctl(struct file *filp, struct vm_area_struct *vma)
+knacs_pulse_ctl_mmap(struct file *filp, struct vm_area_struct *vma)
 {
     unsigned long requested_size = vma->vm_end - vma->vm_start;
     if (requested_size > resource_size(pulse_ctl_regs)) {
@@ -80,7 +80,7 @@ static const struct of_device_id knacs_pulse_ctl_of_ids[] = {
     {}
 };
 
-struct platform_driver knacs_pulse_ctl_driver = {
+static struct platform_driver knacs_pulse_ctl_driver = {
     .driver = {
         .name = "knacs_pulse_controller",
         .owner = THIS_MODULE,
@@ -89,3 +89,23 @@ struct platform_driver knacs_pulse_ctl_driver = {
     .probe = knacs_pulse_ctl_probe,
     .remove = knacs_pulse_ctl_remove,
 };
+
+int __init
+knacs_pulse_ctl_init(void)
+{
+    int err = platform_driver_register(&knacs_pulse_ctl_driver);
+    if (err) {
+        pr_alert("Failed to register pulse controller driver\n");
+        goto err;
+    }
+    return 0;
+
+err:
+    return err;
+}
+
+void
+knacs_pulse_ctl_exit(void)
+{
+    platform_driver_unregister(&knacs_pulse_ctl_driver);
+}
