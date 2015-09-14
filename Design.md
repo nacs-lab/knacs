@@ -172,7 +172,7 @@ of using the Xilinx driver.
         ```c
         typedef struct {
             struct list_head node; // For chaining into a queue
-            struct rb_root *pages; // List of pages
+            struct rb_root pages; // List of pages
             u32 flags; // flags (may not be necessary)
             atomic_t refcnt;
             // Might add other field to cache certain results
