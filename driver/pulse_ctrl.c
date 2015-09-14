@@ -23,34 +23,15 @@
 
 #include <linux/of_platform.h>
 
-static int knacs_pulse_ctl_probe(struct platform_device*);
-static int knacs_pulse_ctl_remove(struct platform_device*);
-
-static const struct of_device_id knacs_pulse_ctl_of_ids[] = {
-    { .compatible = "xlnx,pulse-controller-5.0",},
-    {}
-};
-
-struct platform_driver knacs_pulse_ctl_driver = {
-    .driver = {
-        .name = "knacs_pulse_controller",
-        .owner = THIS_MODULE,
-        .of_match_table = knacs_pulse_ctl_of_ids,
-    },
-    .probe = knacs_pulse_ctl_probe,
-    .remove = knacs_pulse_ctl_remove,
-};
-
 static struct resource *pulse_ctl_regs = NULL;
+
 static int knacs_pulse_ctl_probe(struct platform_device *pdev)
 {
     if (pulse_ctl_regs) {
         pr_alert("Only one pulse controller is allowed\n");
         return -EINVAL;
     }
-    // Sanity check, should not be necessary
-    if (!of_match_device(knacs_pulse_ctl_of_ids, &pdev->dev))
-        return -EINVAL;
+
     pulse_ctl_regs = platform_get_resource(pdev, IORESOURCE_MEM, 0);
     if  (!pulse_ctl_regs ||
          !request_mem_region(pulse_ctl_regs->start,
@@ -91,3 +72,18 @@ knacs_dev_mmap_pulse_ctl(struct file *filp, struct vm_area_struct *vma)
                            pulse_ctl_regs->start >> PAGE_SHIFT,
                            requested_size, vma->vm_page_prot);
 }
+
+static const struct of_device_id knacs_pulse_ctl_of_ids[] = {
+    { .compatible = "xlnx,pulse-controller-5.0",},
+    {}
+};
+
+struct platform_driver knacs_pulse_ctl_driver = {
+    .driver = {
+        .name = "knacs_pulse_controller",
+        .owner = THIS_MODULE,
+        .of_match_table = knacs_pulse_ctl_of_ids,
+    },
+    .probe = knacs_pulse_ctl_probe,
+    .remove = knacs_pulse_ctl_remove,
+};
