@@ -138,11 +138,11 @@ of using the Xilinx driver.
 
 * Objects and lifetime
 
-    * `knacs_dma_page`
+    * `knacs_page`
 
         Cache a few free pages in a list for fast allocation
 
-        The pages will be inserted in an `knacs_dma_block` that will be
+        The pages will be inserted in an `knacs_block` that will be
         either mapped to the userspace or queued for DMA transfer.
 
         ```c
@@ -153,10 +153,10 @@ of using the Xilinx driver.
             u32 idx; // page index in the block
             void *data; // actually page data (virtual address)
             dma_addr_t dma_addr; // dma (physical) address
-        } knacs_dma_page;
+        } knacs_page;
         ```
 
-    * `knacs_dma_block`
+    * `knacs_block`
 
         This is the representation of a DMA buffer, which can be
 
@@ -176,7 +176,7 @@ of using the Xilinx driver.
             u32 flags; // flags (may not be necessary)
             atomic_t refcnt;
             // Might add other field to cache certain results
-        } knacs_dma_page;
+        } knacs_block;
         ```
 
     * `knacs_dma_sg_desc`
