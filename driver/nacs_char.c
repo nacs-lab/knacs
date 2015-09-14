@@ -153,6 +153,7 @@ nacs_dev_ioctl(struct file *file, unsigned int cmd, unsigned long _arg)
         if (copy_to_user(&arg->major, &major_ver, sizeof(int)) ||
             copy_to_user(&arg->minor, &minor_ver, sizeof(int)))
             return -EFAULT;
+        break;
     }
     default:
         break;
