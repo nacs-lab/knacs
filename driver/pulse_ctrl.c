@@ -21,46 +21,12 @@
 
 #include "pulse_ctrl.h"
 
-#include <linux/of_platform.h>
+const static size_t ctrler_addr = 0x73000000;
 
-static struct resource *pulse_ctl_regs = NULL;
-
-static int knacs_pulse_ctl_probe(struct platform_device *pdev)
-{
-    if (pulse_ctl_regs) {
-        pr_alert("Only one pulse controller is allowed\n");
-        return -EINVAL;
-    }
-
-    pulse_ctl_regs = platform_get_resource(pdev, IORESOURCE_MEM, 0);
-    if  (!pulse_ctl_regs ||
-         !request_mem_region(pulse_ctl_regs->start,
-                             resource_size(pulse_ctl_regs),
-                             "knacs-pulse-controller")) {
-        pr_alert("Failed to request pulse controller registers\n");
-        return -EBUSY;
-    }
-    pr_info("pulse controller probe\n");
-    pr_info("    res->start @0x%x\n", pulse_ctl_regs->start);
-
-    return 0;
-}
-
-static int knacs_pulse_ctl_remove(struct platform_device *pdev)
-{
-    if (pulse_ctl_regs) {
-        release_mem_region(pulse_ctl_regs->start,
-                           resource_size(pulse_ctl_regs));
-        pulse_ctl_regs = NULL;
-    }
-    return 0;
-}
-
-int
-knacs_pulse_ctl_mmap(struct file *filp, struct vm_area_struct *vma)
+int knacs_pulse_ctl_mmap(struct file *filp, struct vm_area_struct *vma)
 {
     unsigned long requested_size = vma->vm_end - vma->vm_start;
-    if (requested_size > resource_size(pulse_ctl_regs)) {
+    if (requested_size > PAGE_SIZE) {
         pr_alert("MMap size too large for pulse controller\n");
         return -EINVAL;
     }
@@ -70,42 +36,15 @@ knacs_pulse_ctl_mmap(struct file *filp, struct vm_area_struct *vma)
 
     pr_debug("mmap pulse controller\n");
 
-    return remap_pfn_range(vma, vma->vm_start,
-                           pulse_ctl_regs->start >> PAGE_SHIFT,
+    return remap_pfn_range(vma, vma->vm_start, ctrler_addr,
                            requested_size, vma->vm_page_prot);
 }
 
-static const struct of_device_id knacs_pulse_ctl_of_ids[] = {
-    { .compatible = "xlnx,pulse-controller-5.0",},
-    {}
-};
-
-static struct platform_driver knacs_pulse_ctl_driver = {
-    .driver = {
-        .name = "knacs_pulse_controller",
-        .owner = THIS_MODULE,
-        .of_match_table = knacs_pulse_ctl_of_ids,
-    },
-    .probe = knacs_pulse_ctl_probe,
-    .remove = knacs_pulse_ctl_remove,
-};
-
-int __init
-knacs_pulse_ctl_init(void)
+int __init knacs_pulse_ctl_init(void)
 {
-    int err = platform_driver_register(&knacs_pulse_ctl_driver);
-    if (err) {
-        pr_alert("Failed to register pulse controller driver\n");
-        goto err;
-    }
     return 0;
-
-err:
-    return err;
 }
 
-void
-knacs_pulse_ctl_exit(void)
+void knacs_pulse_ctl_exit(void)
 {
-    platform_driver_unregister(&knacs_pulse_ctl_driver);
 }
