@@ -36,7 +36,7 @@ int knacs_pulse_ctl_mmap(struct file *filp, struct vm_area_struct *vma)
 
     pr_debug("mmap pulse controller\n");
 
-    return remap_pfn_range(vma, vma->vm_start, ctrler_addr,
+    return remap_pfn_range(vma, vma->vm_start, ctrler_addr >> PAGE_SHIFT,
                            requested_size, vma->vm_page_prot);
 }
 
