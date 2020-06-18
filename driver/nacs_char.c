@@ -28,6 +28,7 @@
 
 #include <linux/module.h>
 #include <linux/fs.h>
+#include <linux/uaccess.h>
 #include <asm/uaccess.h>
 
 #define DEVICE_NAME "knacs"
