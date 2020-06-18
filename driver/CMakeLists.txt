@@ -21,7 +21,7 @@ endforeach()
 add_custom_target(nacs-driver-src-link DEPENDS ${KNACS_DRIVER_SRCS_LINK})
 
 add_custom_command(OUTPUT "${KNACS_OUTPUT_DIR}/knacs.ko"
-  COMMAND make -C "${KDIR}" "CC=${CMAKE_C_COMPILER}" ARCH=arm
+  COMMAND make -C "${KDIR}" "CROSS_COMPILE=${CROSS_COMPILE}" ARCH=arm
   "M=${KNACS_OUTPUT_DIR}"
   WORKING_DIRECTORY "${KNACS_OUTPUT_DIR}"
   DEPENDS ${KNACS_DRIVER_SRCS} nacs-driver-src-link)
