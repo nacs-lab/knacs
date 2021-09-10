@@ -56,8 +56,31 @@ static int knacs_pulse_ctl_remove(struct platform_device *pdev)
     return 0;
 }
 
+const static size_t ctrler_addr = 0x73000000;
+
+static int knacs_pulse_ctl_mmap_hardcode(struct file *filp, struct vm_area_struct *vma)
+{
+    pr_info("Mapping hard coded controller address\n");
+    unsigned long requested_size = vma->vm_end - vma->vm_start;
+    if (requested_size > PAGE_SIZE) {
+        pr_alert("MMap size too large for pulse controller\n");
+        return -EINVAL;
+    }
+
+    vma->vm_page_prot = pgprot_noncached(vma->vm_page_prot);
+    vma->vm_flags |= VM_IO;
+
+    pr_debug("mmap pulse controller\n");
+
+    return remap_pfn_range(vma, vma->vm_start, ctrler_addr >> PAGE_SHIFT,
+                           requested_size, vma->vm_page_prot);
+}
+
 int knacs_pulse_ctl_mmap(struct file *filp, struct vm_area_struct *vma)
 {
+    if (!pulse_ctl_regs)
+        return knacs_pulse_ctl_mmap_hardcode(filp, vma);
+
     unsigned long requested_size = vma->vm_end - vma->vm_start;
     if (requested_size > resource_size(pulse_ctl_regs)) {
         pr_alert("MMap size too large for pulse controller\n");
