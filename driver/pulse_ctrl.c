@@ -76,10 +76,10 @@ knacs_pulse_ctl_mmap(struct file *filp, struct vm_area_struct *vma)
 }
 
 static const struct of_device_id knacs_pulse_ctl_of_ids[] = {
+    { .compatible = "xlnx,pulse-controller-5",},
     { .compatible = "xlnx,pulse-controller-5.0",},
     { .compatible = "xlnx,pulse-controller-5.1",},
     { .compatible = "xlnx,pulse-controller-5.2",},
-    { .compatible = "xlnx,pulse-controller-5.3",},
     {}
 };
 
