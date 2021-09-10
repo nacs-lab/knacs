@@ -56,8 +56,7 @@ static int knacs_pulse_ctl_remove(struct platform_device *pdev)
     return 0;
 }
 
-int
-knacs_pulse_ctl_mmap(struct file *filp, struct vm_area_struct *vma)
+int knacs_pulse_ctl_mmap(struct file *filp, struct vm_area_struct *vma)
 {
     unsigned long requested_size = vma->vm_end - vma->vm_start;
     if (requested_size > resource_size(pulse_ctl_regs)) {
@@ -93,8 +92,7 @@ static struct platform_driver knacs_pulse_ctl_driver = {
     .remove = knacs_pulse_ctl_remove,
 };
 
-int __init
-knacs_pulse_ctl_init(void)
+int __init knacs_pulse_ctl_init(void)
 {
     int err = platform_driver_register(&knacs_pulse_ctl_driver);
     if (err) {
@@ -107,8 +105,7 @@ err:
     return err;
 }
 
-void
-knacs_pulse_ctl_exit(void)
+void __exit knacs_pulse_ctl_exit(void)
 {
     platform_driver_unregister(&knacs_pulse_ctl_driver);
 }
