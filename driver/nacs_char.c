@@ -24,6 +24,7 @@
 
 #include "knacs.h"
 
+#include "ocm.h"
 #include "pulse_ctrl.h"
 
 #include <linux/module.h>
@@ -100,8 +101,14 @@ static int __init knacs_init(void)
 
     if ((err = knacs_pulse_ctl_init()))
         goto pulse_ctl_init_fail;
+
+    if ((err = knacs_ocm_init()))
+        goto ocm_init_fail;
+
     return 0;
 
+ocm_init_fail:
+    knacs_pulse_ctl_exit();
 pulse_ctl_init_fail:
     device_destroy(nacsClass, MKDEV(majorNumber, 0)); // remove the device
 dev_create_fail:
@@ -114,6 +121,7 @@ reg_dev_fail:
 
 static void __exit knacs_exit(void)
 {
+    knacs_ocm_exit();
     knacs_pulse_ctl_exit();
     device_destroy(nacsClass, MKDEV(majorNumber, 0)); // remove the device
     class_unregister(nacsClass); // unregister the device class
@@ -172,6 +180,8 @@ knacs_dev_mmap(struct file *filp, struct vm_area_struct *vma)
     // The first page is the pulse controller registers
     if (vma->vm_pgoff == 0)
         return knacs_pulse_ctl_mmap(filp, vma);
+    if (vma->vm_pgoff == 1)
+        return knacs_ocm_mmap(filp, vma);
     pr_alert("Mapping unknown pages.\n");
     return -EINVAL;
 }

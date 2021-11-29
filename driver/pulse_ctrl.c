@@ -17,7 +17,7 @@
  *   02110-1301, USA.                                                    *
  *************************************************************************/
 
-#define pr_fmt(fmt) "KNaCs: " fmt
+#define pr_fmt(fmt) "KNaCs (pulse-ctl): " fmt
 
 #include "pulse_ctrl.h"
 
@@ -125,7 +125,7 @@ err:
     return err;
 }
 
-void __exit knacs_pulse_ctl_exit(void)
+void knacs_pulse_ctl_exit(void)
 {
     platform_driver_unregister(&knacs_pulse_ctl_driver);
 }

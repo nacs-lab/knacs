@@ -4,6 +4,8 @@ set(KNACS_DRIVER_SRCS
   Kbuild
   nacs_char.c
   knacs.h
+  ocm.c
+  ocm.h
   pulse_ctrl.c
   pulse_ctrl.h)
 
