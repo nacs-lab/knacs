@@ -71,7 +71,7 @@ failed:
     return 0;
 }
 
-void __exit knacs_ocm_exit(void)
+void knacs_ocm_exit(void)
 {
     ocmc_pool = NULL;
     if (ocmc_dev_node)

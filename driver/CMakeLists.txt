@@ -4,6 +4,8 @@ set(KNACS_DRIVER_SRCS
   Kbuild
   buff_alloc.c
   buff_alloc.h
+  dma_buff.c
+  dma_buff.h
   knacs.h
   nacs_char.c
   ocm.c

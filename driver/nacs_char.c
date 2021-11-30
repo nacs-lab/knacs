@@ -24,6 +24,7 @@
 
 #include "knacs.h"
 
+#include "dma_buff.h"
 #include "ocm.h"
 #include "pulse_ctrl.h"
 
@@ -105,8 +106,13 @@ static int __init knacs_init(void)
     if ((err = knacs_ocm_init()))
         goto ocm_init_fail;
 
+    if ((err = knacs_dma_buff_init()))
+        goto dma_buff_init_fail;
+
     return 0;
 
+dma_buff_init_fail:
+    knacs_ocm_exit();
 ocm_init_fail:
     knacs_pulse_ctl_exit();
 pulse_ctl_init_fail:
@@ -121,6 +127,7 @@ reg_dev_fail:
 
 static void __exit knacs_exit(void)
 {
+    knacs_dma_buff_exit();
     knacs_ocm_exit();
     knacs_pulse_ctl_exit();
     device_destroy(nacsClass, MKDEV(majorNumber, 0)); // remove the device
@@ -182,6 +189,8 @@ knacs_dev_mmap(struct file *filp, struct vm_area_struct *vma)
         return knacs_pulse_ctl_mmap(filp, vma);
     if (vma->vm_pgoff == 1)
         return knacs_ocm_mmap(filp, vma);
+    if (vma->vm_pgoff == 2)
+        return knacs_dma_buff_mmap(filp, vma);
     pr_alert("Mapping unknown pages.\n");
     return -EINVAL;
 }
