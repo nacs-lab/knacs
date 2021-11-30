@@ -2,8 +2,10 @@
 
 set(KNACS_DRIVER_SRCS
   Kbuild
-  nacs_char.c
+  buff_alloc.c
+  buff_alloc.h
   knacs.h
+  nacs_char.c
   ocm.c
   ocm.h
   pulse_ctrl.c

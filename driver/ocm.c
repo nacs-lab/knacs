@@ -34,11 +34,11 @@
 
 #include "ocm.h"
 
+#include "buff_alloc.h"
 #include "knacs.h"
 
 #include <linux/genalloc.h>
 #include <linux/of_device.h>
-#include <linux/slab.h>
 
 const char *const ocmc_comp = "xlnx,zynq-ocmc-1.0";
 static struct device_node *ocmc_dev_node = NULL;
@@ -79,78 +79,7 @@ void __exit knacs_ocm_exit(void)
     ocmc_dev_node = NULL;
 }
 
-struct ocm_buf {
-    void *virt_addr;
-    size_t sz;
-    refcount_t refcnt;
-};
-
-// Open and close implementation borrowed from `drivers/char/mspec.c`
-static void ocm_vm_open(struct vm_area_struct *vma)
-{
-    struct ocm_buf *ocm_buf = vma->vm_private_data;
-    refcount_inc(&ocm_buf->refcnt);
-}
-
-static void ocm_vm_close(struct vm_area_struct *vma)
-{
-    struct ocm_buf *ocm_buf = vma->vm_private_data;
-    if (!refcount_dec_and_test(&ocm_buf->refcnt))
-        return;
-
-    gen_pool_free(ocmc_pool, (unsigned long)ocm_buf->virt_addr, ocm_buf->sz);
-    kfree(ocm_buf);
-}
-
-static const struct vm_operations_struct ocm_vm_ops = {
-    .open = ocm_vm_open,
-    .close = ocm_vm_close,
-};
-
 int knacs_ocm_mmap(struct file *file, struct vm_area_struct *vma)
 {
-    if ((vma->vm_flags & (VM_SHARED | VM_MAYSHARE)) == 0)
-        return -EINVAL;
-
-    unsigned long sz = vma->vm_end - vma->vm_start;
-    if (sz == 0)
-        return -EINVAL;
-
-    // Allocation logic modified from `arch/arm/mach-zynq/pm.c`
-    dma_addr_t dma_addr = 0;
-    void *virt_addr = gen_pool_dma_alloc_align(ocmc_pool, sz, &dma_addr, PAGE_SIZE);
-    if (!virt_addr) {
-        pr_debug("Unable to allocate OCM buffer\n");
-        return -ENOMEM;
-    }
-
-    int ret = -ENOMEM;
-    if (dma_addr == (dma_addr_t)-1) {
-        pr_alert("Unable to find physical address of OCM buffer\n");
-        goto failed;
-    }
-
-    struct ocm_buf *ocm_buf = kzalloc(sizeof(struct ocm_buf), GFP_KERNEL);
-    if (!ocm_buf) {
-        pr_alert("kalloc failed for ocm_buf\n");
-        goto failed;
-    }
-    ocm_buf->virt_addr = virt_addr;
-    ocm_buf->sz = sz;
-    refcount_set(&ocm_buf->refcnt, 1);
-
-    // mapping implementation borrowed from `drivers/char/mem.c`
-    vma->vm_private_data = ocm_buf;
-    vma->vm_ops = &ocm_vm_ops;
-    memset(virt_addr, 0, sz);
-
-    pr_debug("Allocated OCM buffer of size %lu @ 0x%lx\n",
-             (unsigned long)sz, (unsigned long)dma_addr);
-
-    return remap_pfn_range(vma, vma->vm_start, dma_addr >> PAGE_SHIFT,
-                           sz, vma->vm_page_prot);
-
-failed:
-    gen_pool_free(ocmc_pool, (unsigned long)virt_addr, sz);
-    return ret;
+    return knacs_buff_alloc_mmap(ocmc_pool, vma, "OCM");
 }
