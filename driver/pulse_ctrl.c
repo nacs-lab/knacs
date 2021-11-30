@@ -56,10 +56,13 @@ static int knacs_pulse_ctl_remove(struct platform_device *pdev)
     return 0;
 }
 
-const static size_t ctrler_addr = 0x73000000;
-
 static int knacs_pulse_ctl_mmap_hardcode(struct file *filp, struct vm_area_struct *vma)
 {
+#ifdef __arm__
+    // Have the hard coded address only on ARM where we didn't use to have a working
+    // device tree for our pulse controller.
+    const static size_t ctrler_addr = 0x73000000;
+
     pr_info("Mapping hard coded controller address\n");
     unsigned long requested_size = vma->vm_end - vma->vm_start;
     if (requested_size > PAGE_SIZE) {
@@ -74,6 +77,9 @@ static int knacs_pulse_ctl_mmap_hardcode(struct file *filp, struct vm_area_struc
 
     return remap_pfn_range(vma, vma->vm_start, ctrler_addr >> PAGE_SHIFT,
                            requested_size, vma->vm_page_prot);
+#else
+    return -EINVAL;
+#endif
 }
 
 int knacs_pulse_ctl_mmap(struct file *filp, struct vm_area_struct *vma)
