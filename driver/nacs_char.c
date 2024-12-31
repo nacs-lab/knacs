@@ -31,6 +31,7 @@
 #include <linux/module.h>
 #include <linux/fs.h>
 #include <linux/uaccess.h>
+#include <linux/version.h>
 #include <asm/uaccess.h>
 
 #define DEVICE_NAME "knacs"
@@ -83,7 +84,11 @@ static int __init knacs_init(void)
     }
 
     // Register the device class
+#if LINUX_VERSION_CODE < KERNEL_VERSION(6, 4, 0)
     nacsClass = class_create(THIS_MODULE, CLASS_NAME);
+#else
+    nacsClass = class_create(CLASS_NAME);
+#endif
     if (IS_ERR(nacsClass)) {
         pr_alert("Failed to register device class\n");
         // Correct way to return an error on a pointer

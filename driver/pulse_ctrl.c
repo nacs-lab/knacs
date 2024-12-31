@@ -22,6 +22,7 @@
 #include "pulse_ctrl.h"
 
 #include <linux/of_platform.h>
+#include <linux/version.h>
 
 static struct resource *pulse_ctl_regs = NULL;
 
@@ -71,7 +72,11 @@ static int knacs_pulse_ctl_mmap_hardcode(struct file *filp, struct vm_area_struc
     }
 
     vma->vm_page_prot = pgprot_noncached(vma->vm_page_prot);
+#if LINUX_VERSION_CODE < KERNEL_VERSION(6, 3, 0)
     vma->vm_flags |= VM_IO;
+#else
+    vm_flags_set(vma, VM_IO);
+#endif
 
     pr_debug("mmap pulse controller\n");
 
@@ -93,8 +98,11 @@ int knacs_pulse_ctl_mmap(struct file *filp, struct vm_area_struct *vma)
         return -EINVAL;
     }
 
-    vma->vm_page_prot = pgprot_noncached(vma->vm_page_prot);
+#if LINUX_VERSION_CODE < KERNEL_VERSION(6, 3, 0)
     vma->vm_flags |= VM_IO;
+#else
+    vm_flags_set(vma, VM_IO);
+#endif
 
     pr_debug("mmap pulse controller\n");
 
