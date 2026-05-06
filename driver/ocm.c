@@ -39,6 +39,7 @@
 
 #include <linux/genalloc.h>
 #include <linux/of_device.h>
+#include <linux/version.h>
 
 #if LINUX_VERSION_CODE < KERNEL_VERSION(5, 15, 0)
 const char *const ocmc_comp = "xlnx,zynq-ocmc-1.0";
