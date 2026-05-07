@@ -25,7 +25,8 @@ extern "C" {
 #endif
 
 enum {
-    KNACS_GET_VERSION,
+    KNACS_GET_VERSION = 0,
+    KNACS_GET_BUFF_PHY_ADDR = 1,
 };
 
 typedef struct {

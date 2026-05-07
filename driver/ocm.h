@@ -27,5 +27,6 @@
 void knacs_ocm_init_from_device(struct device_node*);
 void knacs_ocm_exit(void);
 int knacs_ocm_mmap(struct file*, struct vm_area_struct*);
+phys_addr_t knacs_ocm_get_phy_addr(unsigned long);
 
 #endif

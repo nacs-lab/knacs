@@ -107,3 +107,10 @@ int knacs_dma_buff_mmap(struct file *file, struct vm_area_struct *vma)
 {
     return knacs_buff_alloc_mmap(dma_buff_pool, vma, "DMA Buff");
 }
+
+phys_addr_t knacs_dma_buff_get_phy_addr(unsigned long addr)
+{
+    if (!dma_buff_pool)
+        return (phys_addr_t)-1;
+    return gen_pool_virt_to_phys(dma_buff_pool, addr);
+}

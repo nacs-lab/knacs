@@ -174,6 +174,24 @@ knacs_dev_ioctl(struct file *file, unsigned int cmd, unsigned long _arg)
         }
         break;
     }
+    case KNACS_GET_BUFF_PHY_ADDR: {
+        unsigned long *arg = (unsigned long*)_arg;
+        unsigned long addr;
+        if (copy_from_user(&addr, arg, sizeof(unsigned long)))
+            return -EFAULT;
+        phys_addr_t res;
+        res = knacs_ocm_get_phy_addr(addr);
+        if (res == (phys_addr_t)-1) {
+            res = knacs_dma_buff_get_phy_addr(addr);
+            if (res == (phys_addr_t)-1) {
+                return -EFAULT;
+            }
+        }
+        addr = (unsigned long)res;
+        if (copy_to_user(arg, &addr, sizeof(unsigned long)))
+            return -EFAULT;
+        break;
+    }
     default:
         return -EINVAL;
     }
