@@ -79,6 +79,9 @@ int __init knacs_dma_buff_init(void)
     if (allocated < MAX_PAGE_COUNT)
         pr_alert("Unable to allocate %u pages, %u allocated\n", MAX_PAGE_COUNT, allocated);
 
+    pr_info("DMA Buffer\n");
+    knacs_buff_alloc_print(dma_buff_pool);
+
     return 0;
 }
 

@@ -52,6 +52,20 @@ static const struct vm_operations_struct buff_vm_ops = {
     .close = buff_vm_close,
 };
 
+static void print_genpool_cb(struct gen_pool *pool, struct gen_pool_chunk *chunk,
+                             void *data)
+{
+    pr_info("  Size: %ld, Avail: %ld\n", chunk->end_addr - chunk->start_addr + 1,
+             atomic_long_read(&chunk->avail));
+}
+
+void knacs_buff_alloc_print(struct gen_pool *pool)
+{
+    pr_info("Total Size: %ld, Total Avail: %ld\n", gen_pool_size(pool),
+            gen_pool_avail(pool));
+    gen_pool_for_each_chunk(pool, print_genpool_cb, NULL);
+}
+
 int knacs_buff_alloc_mmap(struct gen_pool *pool, struct vm_area_struct *vma, const char *name)
 {
     if ((vma->vm_flags & (VM_SHARED | VM_MAYSHARE)) == 0)

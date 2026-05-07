@@ -68,6 +68,7 @@ int __init knacs_ocm_init(void)
         goto no_pool;
     }
     pr_info("Found OCM pool\n");
+    knacs_buff_alloc_print(ocmc_pool);
 
     return 0;
 
