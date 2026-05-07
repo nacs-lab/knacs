@@ -43,10 +43,12 @@
 
 #if LINUX_VERSION_CODE < KERNEL_VERSION(5, 15, 0)
 const char *const ocmc_comp = "xlnx,zynq-ocmc-1.0";
+const char *const ocmc_name = NULL;
 #else
 // Ref https://github.com/Xilinx/linux-xlnx/commit/8d2d91dfc170e55126ee51c1f3be1a4634441225
 // Upstream switched to generic driver for ocm
 const char *const ocmc_comp = "mmio-sram";
+const char *const ocmc_name = "ocm-sram@0";
 #endif
 static struct device_node *ocmc_dev_node = NULL;
 static struct gen_pool *ocmc_pool = NULL;
@@ -62,7 +64,8 @@ int __init knacs_ocm_init(void)
         goto failed;
     }
 
-    ocmc_pool = gen_pool_get(&(of_find_device_by_node(ocmc_dev_node)->dev), NULL);
+    ocmc_pool = gen_pool_get(&(of_find_device_by_node(ocmc_dev_node)->dev),
+                             ocmc_name);
     if (!ocmc_pool) {
         pr_alert("Unable to find OCM pool\n");
         goto no_pool;
