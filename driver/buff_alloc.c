@@ -68,6 +68,11 @@ void knacs_buff_alloc_print(struct gen_pool *pool)
 
 int knacs_buff_alloc_mmap(struct gen_pool *pool, struct vm_area_struct *vma, const char *name)
 {
+    if (!pool) {
+        pr_alert("Pool %s not initialized\n", name);
+        return -ENOMEM;
+    }
+
     if ((vma->vm_flags & (VM_SHARED | VM_MAYSHARE)) == 0)
         return -EINVAL;
 
