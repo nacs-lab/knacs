@@ -112,10 +112,3 @@ int knacs_ocm_mmap(struct file *file, struct vm_area_struct *vma)
     knacs_ocm_lazy_init();
     return knacs_buff_alloc_mmap(ocmc_pool, vma, "OCM");
 }
-
-phys_addr_t knacs_ocm_get_phy_addr(unsigned long addr)
-{
-    if (!ocmc_pool)
-        return (phys_addr_t)-1;
-    return gen_pool_virt_to_phys(ocmc_pool, addr);
-}

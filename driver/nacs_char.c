@@ -24,6 +24,7 @@
 
 #include "knacs.h"
 
+#include "buff_alloc.h"
 #include "dma_buff.h"
 #include "ocm.h"
 #include "pulse_ctrl.h"
@@ -179,15 +180,9 @@ knacs_dev_ioctl(struct file *file, unsigned int cmd, unsigned long _arg)
         unsigned long addr;
         if (copy_from_user(&addr, arg, sizeof(unsigned long)))
             return -EFAULT;
-        phys_addr_t res;
-        res = knacs_ocm_get_phy_addr(addr);
-        if (res == (phys_addr_t)-1) {
-            res = knacs_dma_buff_get_phy_addr(addr);
-            if (res == (phys_addr_t)-1) {
-                return -EINVAL;
-            }
-        }
-        addr = (unsigned long)res;
+        addr = knacs_buff_get_phy_addr(addr);
+        if (addr == (unsigned long)-1)
+            return -EINVAL;
         if (copy_to_user(arg, &addr, sizeof(unsigned long)))
             return -EFAULT;
         break;

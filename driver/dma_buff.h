@@ -26,6 +26,5 @@
 int knacs_dma_buff_init(void);
 void knacs_dma_buff_exit(void);
 int knacs_dma_buff_mmap(struct file*, struct vm_area_struct*);
-phys_addr_t knacs_dma_buff_get_phy_addr(unsigned long);
 
 #endif

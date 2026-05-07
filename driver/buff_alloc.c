@@ -21,6 +21,7 @@
 
 #include "buff_alloc.h"
 
+#include <linux/mm.h>
 #include <linux/slab.h>
 
 struct vm_buf {
@@ -118,4 +119,20 @@ int knacs_buff_alloc_mmap(struct gen_pool *pool, struct vm_area_struct *vma, con
 failed:
     gen_pool_free(pool, (unsigned long)virt_addr, sz);
     return ret;
+}
+
+unsigned long knacs_buff_get_phy_addr(unsigned long user_addr)
+{
+    if (!current || !current->mm)
+        return (unsigned long)-1;
+    struct vm_area_struct *vma = find_vma(current->mm, user_addr);
+    if (!vma || vma->vm_start > user_addr || vma->vm_ops != &buff_vm_ops)
+        return (unsigned long)-1;
+    struct vm_buf *vm_buf = vma->vm_private_data;
+    unsigned long start_addr =
+        (unsigned long)gen_pool_virt_to_phys(vm_buf->pool,
+                                             (unsigned long)vm_buf->virt_addr);
+    if (start_addr == (unsigned long)-1)
+        return start_addr;
+    return start_addr + (user_addr - vma->vm_start);
 }
