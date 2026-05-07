@@ -108,17 +108,12 @@ static int __init knacs_init(void)
     if ((err = knacs_pulse_ctl_init()))
         goto pulse_ctl_init_fail;
 
-    if ((err = knacs_ocm_init()))
-        goto ocm_init_fail;
-
     if ((err = knacs_dma_buff_init()))
         goto dma_buff_init_fail;
 
     return 0;
 
 dma_buff_init_fail:
-    knacs_ocm_exit();
-ocm_init_fail:
     knacs_pulse_ctl_exit();
 pulse_ctl_init_fail:
     device_destroy(nacsClass, MKDEV(majorNumber, 0)); // remove the device

@@ -20,6 +20,7 @@
 #define pr_fmt(fmt) "KNaCs (pulse-ctl): " fmt
 
 #include "pulse_ctrl.h"
+#include "ocm.h"
 
 #include <linux/of_platform.h>
 #include <linux/version.h>
@@ -43,6 +44,9 @@ static int knacs_pulse_ctl_probe(struct platform_device *pdev)
     }
     pr_info("pulse controller probe\n");
     pr_info("    res->start @0x%x\n", pulse_ctl_regs->start);
+
+    if (pdev->dev.of_node)
+        knacs_ocm_init_from_device(pdev->dev.of_node);
 
     return 0;
 }

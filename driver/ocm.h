@@ -22,8 +22,9 @@
 
 #include <linux/fs.h>
 #include <linux/mm.h>
+#include <linux/of_platform.h>
 
-int knacs_ocm_init(void);
+void knacs_ocm_init_from_device(struct device_node*);
 void knacs_ocm_exit(void);
 int knacs_ocm_mmap(struct file*, struct vm_area_struct*);
 

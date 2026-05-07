@@ -52,9 +52,25 @@ const char *const ocmc_name = "ocm-sram@0";
 #endif
 static struct device_node *ocmc_dev_node = NULL;
 static struct gen_pool *ocmc_pool = NULL;
+static bool initialized = false;
 
-int __init knacs_ocm_init(void)
+void knacs_ocm_init_from_device(struct device_node *node)
 {
+    ocmc_pool = of_gen_pool_get(node, "ocmpool", 0);
+    if (!ocmc_pool) {
+        pr_alert("Unable to find OCM pool from device %p\n", node);
+        return;
+    }
+    ocmc_dev_node = of_node_get(node);
+    pr_info("Found OCM pool from controller\n");
+    knacs_buff_alloc_print(ocmc_pool);
+}
+
+static void knacs_ocm_lazy_init(void)
+{
+    if (initialized || ocmc_pool)
+        return;
+    initialized = true;
     // Get a hold of the OCM pool.
     // Logic copied from `zynq_pm_remap_ocm` in `arch/arm/mach-zynq/pm.c`.
     // Don't fail the module loading if this fail, we'll simply fail at allocation time instead.
@@ -73,13 +89,13 @@ int __init knacs_ocm_init(void)
     pr_info("Found OCM pool\n");
     knacs_buff_alloc_print(ocmc_pool);
 
-    return 0;
+    return;
 
 no_pool:
     of_node_put(ocmc_dev_node);
     ocmc_dev_node = NULL;
 failed:
-    return 0;
+    return;
 }
 
 void knacs_ocm_exit(void)
@@ -88,9 +104,11 @@ void knacs_ocm_exit(void)
     if (ocmc_dev_node)
         of_node_put(ocmc_dev_node);
     ocmc_dev_node = NULL;
+    initialized = false;
 }
 
 int knacs_ocm_mmap(struct file *file, struct vm_area_struct *vma)
 {
+    knacs_ocm_lazy_init();
     return knacs_buff_alloc_mmap(ocmc_pool, vma, "OCM");
 }
