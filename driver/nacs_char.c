@@ -184,7 +184,7 @@ knacs_dev_ioctl(struct file *file, unsigned int cmd, unsigned long _arg)
         if (res == (phys_addr_t)-1) {
             res = knacs_dma_buff_get_phy_addr(addr);
             if (res == (phys_addr_t)-1) {
-                return -EFAULT;
+                return -EINVAL;
             }
         }
         addr = (unsigned long)res;
