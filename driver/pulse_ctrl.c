@@ -102,6 +102,7 @@ int knacs_pulse_ctl_mmap(struct file *filp, struct vm_area_struct *vma)
         return -EINVAL;
     }
 
+    vma->vm_page_prot = pgprot_noncached(vma->vm_page_prot);
 #if LINUX_VERSION_CODE < KERNEL_VERSION(6, 3, 0)
     vma->vm_flags |= VM_IO;
 #else
