@@ -165,6 +165,7 @@ static long
 knacs_dev_ioctl(struct file *file, unsigned int cmd, unsigned long _arg)
 {
     switch (cmd) {
+    case 0: // Backward compatibility
     case KNACS_GET_VERSION: {
         const int major_ver = KNACS_MAJOR_VER;
         const int minor_ver = KNACS_MINOR_VER;

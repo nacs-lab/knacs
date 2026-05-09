@@ -20,19 +20,21 @@
 #ifndef __KNACS_H__
 #define __KNACS_H__
 
+#include <asm/ioctl.h>
+
 #ifdef __cplusplus
 extern "C" {
 #endif
-
-enum {
-    KNACS_GET_VERSION = 0,
-    KNACS_GET_BUFF_PHY_ADDR = 1,
-};
 
 typedef struct {
     int major;
     int minor;
 } knacs_version_t;
+
+enum {
+    KNACS_GET_VERSION = _IOW('y', 0, knacs_version_t),
+    KNACS_GET_BUFF_PHY_ADDR = _IOWR('y', 1, unsigned long),
+};
 
 #ifdef __cplusplus
 }
