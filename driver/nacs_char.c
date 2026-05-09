@@ -189,7 +189,7 @@ knacs_dev_ioctl(struct file *file, unsigned int cmd, unsigned long _arg)
         break;
     }
     default:
-        return -EINVAL;
+        return -ENOTTY;
     }
 
     return 0;
