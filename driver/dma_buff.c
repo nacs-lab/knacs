@@ -105,5 +105,5 @@ void __exit knacs_dma_buff_exit(void)
 
 int knacs_dma_buff_mmap(struct file *file, struct vm_area_struct *vma)
 {
-    return knacs_buff_alloc_mmap(dma_buff_pool, vma, "DMA Buff");
+    return knacs_buff_alloc_mmap(dma_buff_pool, vma, "DMA Buff", false);
 }

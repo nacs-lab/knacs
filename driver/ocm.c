@@ -110,5 +110,5 @@ void knacs_ocm_exit(void)
 int knacs_ocm_mmap(struct file *file, struct vm_area_struct *vma)
 {
     knacs_ocm_lazy_init();
-    return knacs_buff_alloc_mmap(ocmc_pool, vma, "OCM");
+    return knacs_buff_alloc_mmap(ocmc_pool, vma, "OCM", true);
 }

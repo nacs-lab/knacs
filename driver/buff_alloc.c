@@ -29,6 +29,7 @@ struct vm_buf {
     void *virt_addr;
     size_t sz;
     refcount_t refcnt;
+    bool isocm;
 };
 
 // Open and close implementation borrowed from `drivers/char/mspec.c`
@@ -67,7 +68,8 @@ void knacs_buff_alloc_print(struct gen_pool *pool)
     gen_pool_for_each_chunk(pool, print_genpool_cb, NULL);
 }
 
-int knacs_buff_alloc_mmap(struct gen_pool *pool, struct vm_area_struct *vma, const char *name)
+int knacs_buff_alloc_mmap(struct gen_pool *pool, struct vm_area_struct *vma,
+                          const char *name, bool isocm)
 {
     if (!pool) {
         pr_alert("Pool %s not initialized\n", name);
@@ -103,6 +105,7 @@ int knacs_buff_alloc_mmap(struct gen_pool *pool, struct vm_area_struct *vma, con
     vm_buf->pool = pool;
     vm_buf->virt_addr = virt_addr;
     vm_buf->sz = sz;
+    vm_buf->isocm = isocm;
     refcount_set(&vm_buf->refcnt, 1);
 
     // mapping implementation borrowed from `drivers/char/mem.c`

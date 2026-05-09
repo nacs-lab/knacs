@@ -24,7 +24,8 @@
 #include <linux/mm.h>
 
 void knacs_buff_alloc_print(struct gen_pool*);
-int knacs_buff_alloc_mmap(struct gen_pool*, struct vm_area_struct*, const char *name);
+int knacs_buff_alloc_mmap(struct gen_pool*, struct vm_area_struct*,
+                          const char *name, bool isocm);
 unsigned long knacs_buff_get_phy_addr(unsigned long);
 
 #endif
