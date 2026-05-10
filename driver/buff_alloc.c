@@ -21,6 +21,7 @@
 
 #include "buff_alloc.h"
 
+#include <linux/dma-mapping.h>
 #include <linux/mm.h>
 #include <linux/slab.h>
 
@@ -139,4 +140,46 @@ unsigned long knacs_buff_get_phy_addr(unsigned long user_addr)
     if (start_addr == (unsigned long)-1)
         return start_addr;
     return start_addr + (user_addr - vma->vm_start);
+}
+
+int knacs_buff_clean_cache(struct device *dev, unsigned long user_addr,
+                           size_t size, bool l1only)
+{
+    if (!current || !current->mm)
+        return -EINVAL;
+    struct vm_area_struct *vma = find_vma(current->mm, user_addr);
+    if (!vma || vma->vm_start > user_addr || vma->vm_ops != &buff_vm_ops)
+        return -EINVAL;
+    struct vm_buf *vm_buf = vma->vm_private_data;
+
+    unsigned long start_offset = user_addr - vma->vm_start;
+    if (size > vm_buf->sz - start_offset)
+        return -EINVAL;
+
+    if (l1only || vm_buf->isocm) {
+        unsigned long virt_addr = (unsigned long)vm_buf->virt_addr + start_offset;
+        unsigned long end_addr = virt_addr + size - 1;
+
+        unsigned ctr;
+        asm ("mrc p15, 0, %0, c0, c0, 1" : "=r"(ctr));
+        unsigned cache_size = 4 << (ctr & 0xf);
+        virt_addr &= ~(cache_size - 1);
+        asm volatile ("dsb" ::: "memory"); // ERRATA 764369
+        do {
+            asm volatile ("mcr p15, 0, %0, c7, c10, 1" :: "r"(virt_addr));
+            virt_addr += cache_size;
+        } while (virt_addr <= end_addr);
+        asm volatile ("dsb st" ::: "memory");
+        return 0;
+    }
+
+    unsigned long phys_start =
+        (unsigned long)gen_pool_virt_to_phys(vm_buf->pool,
+                                             (unsigned long)vm_buf->virt_addr);
+    if (phys_start == (unsigned long)-1)
+        return -EINVAL;
+    unsigned long phys_addr = phys_start + start_offset;
+    dma_sync_single_for_device(dev, (dma_addr_t)phys_addr,
+                               size, DMA_TO_DEVICE);
+    return 0;
 }

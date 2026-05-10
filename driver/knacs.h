@@ -31,9 +31,16 @@ typedef struct {
     int minor;
 } knacs_version_t;
 
+typedef struct {
+    unsigned long addr;
+    unsigned long size;
+    int l1_only: 1;
+} knacs_dma_buff_t;
+
 enum {
     KNACS_GET_VERSION = _IOW('y', 0, knacs_version_t),
     KNACS_GET_BUFF_PHY_ADDR = _IOWR('y', 1, unsigned long),
+    KNACS_FLUSH_DMA = _IOR('y', 2, knacs_dma_buff_t),
 };
 
 #ifdef __cplusplus

@@ -27,5 +27,7 @@ void knacs_buff_alloc_print(struct gen_pool*);
 int knacs_buff_alloc_mmap(struct gen_pool*, struct vm_area_struct*,
                           const char *name, bool isocm);
 unsigned long knacs_buff_get_phy_addr(unsigned long);
+int knacs_buff_clean_cache(struct device *dev, unsigned long user_addr,
+                           size_t size, bool l1only);
 
 #endif

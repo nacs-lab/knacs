@@ -188,6 +188,14 @@ knacs_dev_ioctl(struct file *file, unsigned int cmd, unsigned long _arg)
             return -EFAULT;
         break;
     }
+    case KNACS_FLUSH_DMA: {
+        knacs_dma_buff_t *arg = (knacs_dma_buff_t*)_arg;
+        knacs_dma_buff_t buff;
+        if (copy_from_user(&buff, arg, sizeof(knacs_dma_buff_t)))
+            return -EFAULT;
+        return knacs_buff_clean_cache(knacsDevice, buff.addr,
+                                      buff.size, buff.l1_only);
+    }
     default:
         return -ENOTTY;
     }
