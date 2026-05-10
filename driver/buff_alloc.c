@@ -113,8 +113,9 @@ int knacs_buff_alloc_mmap(struct gen_pool *pool, struct vm_area_struct *vma,
     vma->vm_ops = &buff_vm_ops;
     memset(virt_addr, 0, sz);
 
-    pr_debug("Allocated %s buffer of size %lu @ 0x%lx\n",
-             name, (unsigned long)sz, (unsigned long)dma_addr);
+    pr_debug("Allocated %s buffer of size %lu @ 0x%lx (virt 0x%lx)\n",
+             name, (unsigned long)sz, (unsigned long)dma_addr,
+             (unsigned long)virt_addr);
 
     return remap_pfn_range(vma, vma->vm_start, dma_addr >> PAGE_SHIFT,
                            sz, vma->vm_page_prot);
