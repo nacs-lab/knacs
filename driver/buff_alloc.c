@@ -21,6 +21,8 @@
 
 #include "buff_alloc.h"
 
+#include "nacs_char.h"
+
 #include <linux/dma-mapping.h>
 #include <linux/mm.h>
 #include <linux/slab.h>
@@ -144,8 +146,7 @@ unsigned long knacs_buff_get_phy_addr(unsigned long user_addr)
     return start_addr + (user_addr - vma->vm_start);
 }
 
-int knacs_buff_clean_cache(struct device *dev, unsigned long user_addr,
-                           size_t size, bool l1only)
+int knacs_buff_clean_cache(unsigned long user_addr, size_t size, bool l1only)
 {
     if (!current || !current->mm)
         return -EINVAL;
@@ -181,7 +182,7 @@ int knacs_buff_clean_cache(struct device *dev, unsigned long user_addr,
     if (phys_start == (unsigned long)-1)
         return -EINVAL;
     unsigned long phys_addr = phys_start + start_offset;
-    dma_sync_single_for_device(dev, (dma_addr_t)phys_addr,
+    dma_sync_single_for_device(knacsDevice, (dma_addr_t)phys_addr,
                                size, DMA_TO_DEVICE);
     return 0;
 }

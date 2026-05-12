@@ -1,5 +1,5 @@
 /*************************************************************************
- *   Copyright (c) 2021 - 2021 Yichao Yu <yyc1992@gmail.com>             *
+ *   Copyright (c) 2026 - 2026 Yichao Yu <yyc1992@gmail.com>             *
  *                                                                       *
  *   This program is free software; you can redistribute it and/or       *
  *   modify it under the terms of the GNU General Public License         *
@@ -17,17 +17,11 @@
  *   02110-1301, USA.                                                    *
  *************************************************************************/
 
-#ifndef __KNACS_BUFF_ALLOC_H__
-#define __KNACS_BUFF_ALLOC_H__
+#ifndef __KNACS_BUFF_NACS_CHAR_H__
+#define __KNACS_BUFF_NACS_CHAR_H__
 
-#include <linux/genalloc.h>
-#include <linux/mm.h>
+#include <linux/device.h>
 
-void knacs_buff_alloc_print(struct gen_pool*);
-int knacs_buff_alloc_mmap(struct gen_pool*, struct vm_area_struct*,
-                          const char *name, bool isocm, bool write_combine);
-unsigned long knacs_buff_get_phy_addr(unsigned long);
-int knacs_buff_clean_cache(unsigned long user_addr,
-                           size_t size, bool l1only);
+extern struct device *knacsDevice;
 
 #endif

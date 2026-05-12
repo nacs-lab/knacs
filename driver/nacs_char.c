@@ -24,6 +24,8 @@
 
 #include "knacs.h"
 
+#include "nacs_char.h"
+
 #include "buff_alloc.h"
 #include "dma_buff.h"
 #include "ocm.h"
@@ -70,7 +72,7 @@ static const struct file_operations knacs_fops = {
 
 static int majorNumber;
 static struct class *nacsClass = NULL;
-static struct device *knacsDevice = NULL;
+struct device *knacsDevice = NULL;
 
 static int __init knacs_init(void)
 {
@@ -193,8 +195,7 @@ knacs_dev_ioctl(struct file *file, unsigned int cmd, unsigned long _arg)
         knacs_dma_buff_t buff;
         if (copy_from_user(&buff, arg, sizeof(knacs_dma_buff_t)))
             return -EFAULT;
-        return knacs_buff_clean_cache(knacsDevice, buff.addr,
-                                      buff.size, buff.l1_only);
+        return knacs_buff_clean_cache(buff.addr, buff.size, buff.l1_only);
     }
     default:
         return -ENOTTY;

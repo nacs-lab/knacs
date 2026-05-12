@@ -7,6 +7,7 @@ set(KNACS_DRIVER_SRCS
   dma_buff.c
   dma_buff.h
   knacs.h
+  nacs_char.h
   nacs_char.c
   ocm.c
   ocm.h
