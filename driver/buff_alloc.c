@@ -70,7 +70,7 @@ void knacs_buff_alloc_print(struct gen_pool *pool)
 }
 
 int knacs_buff_alloc_mmap(struct gen_pool *pool, struct vm_area_struct *vma,
-                          const char *name, bool isocm)
+                          const char *name, bool isocm, bool write_combine)
 {
     if (!pool) {
         pr_alert("Pool %s not initialized\n", name);
@@ -112,6 +112,8 @@ int knacs_buff_alloc_mmap(struct gen_pool *pool, struct vm_area_struct *vma,
     // mapping implementation borrowed from `drivers/char/mem.c`
     vma->vm_private_data = vm_buf;
     vma->vm_ops = &buff_vm_ops;
+    if (write_combine)
+        vma->vm_page_prot = pgprot_writecombine(vma->vm_page_prot);
     memset(virt_addr, 0, sz);
 
     pr_debug("Allocated %s buffer of size %lu @ 0x%lx (virt 0x%lx)\n",

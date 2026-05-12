@@ -26,6 +26,7 @@
 
 void knacs_ocm_init_from_device(struct device_node*);
 void knacs_ocm_exit(void);
-int knacs_ocm_mmap(struct file*, struct vm_area_struct*);
+int knacs_ocm_mmap(struct file*, struct vm_area_struct*,
+                   bool write_combine);
 
 #endif

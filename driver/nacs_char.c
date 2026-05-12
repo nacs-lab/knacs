@@ -210,9 +210,13 @@ knacs_dev_mmap(struct file *filp, struct vm_area_struct *vma)
     if (vma->vm_pgoff == 0)
         return knacs_pulse_ctl_mmap(filp, vma);
     if (vma->vm_pgoff == 1)
-        return knacs_ocm_mmap(filp, vma);
+        return knacs_ocm_mmap(filp, vma, false);
     if (vma->vm_pgoff == 2)
-        return knacs_dma_buff_mmap(filp, vma);
+        return knacs_dma_buff_mmap(filp, vma, false);
+    if (vma->vm_pgoff == 3)
+        return knacs_ocm_mmap(filp, vma, true);
+    if (vma->vm_pgoff == 4)
+        return knacs_dma_buff_mmap(filp, vma, true);
     pr_alert("Mapping unknown pages.\n");
     return -EINVAL;
 }
